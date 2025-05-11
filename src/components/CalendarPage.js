@@ -87,14 +87,22 @@ function CalendarPage() {
   const [showUnblockModal, setShowUnblockModal] = useState(false)
   const [blockToUnblock, setBlockToUnblock] = useState(null)
 
+  // Add this after the other state declarations
+  const [showAppointmentHours, setShowAppointmentHours] = useState(false)
+  const [appointmentHours, setAppointmentHours] = useState({
+    date: format(selectedDate, "yyyy-MM-dd"),
+    startTime: "09:00",
+    endTime: "18:00",
+  })
+
   // Patient search dropdown
   const [showPatientDropdown, setShowPatientDropdown] = useState(false)
   const [patientSearchText, setPatientSearchText] = useState("")
 
   // Date picker mini calendar
   const [showMiniCalendar, setShowMiniCalendar] = useState(false)
-  const [miniCalendarDate, setMiniCalendarDate] = useState(new Date())
   const [showMiniCalendarEnd, setShowMiniCalendarEnd] = useState(false)
+  const [miniCalendarDate, setMiniCalendarDate] = useState(new Date())
   const [miniCalendarEndDate, setMiniCalendarEndDate] = useState(new Date())
 
   // New appointment form state
@@ -352,6 +360,20 @@ function CalendarPage() {
       startDate: format(selectedDate, "yyyy-MM-dd"),
       endDate: format(selectedDate, "yyyy-MM-dd"),
       reason: "Vacaciones",
+      startTime: "09:00",
+      endTime: "18:00",
+    })
+  }
+
+  // Add this after the other handler functions
+  const handleAppointmentHoursSubmit = (e) => {
+    e.preventDefault()
+    // Here you would typically save the appointment hours to your backend
+    console.log("Appointment hours set:", appointmentHours)
+    setShowAppointmentHours(false)
+    // Reset form
+    setAppointmentHours({
+      date: format(selectedDate, "yyyy-MM-dd"),
       startTime: "09:00",
       endTime: "18:00",
     })
@@ -662,6 +684,9 @@ function CalendarPage() {
         <button className="action-button block-button" onClick={() => setShowBlockDays(true)}>
           Bloquear días
         </button>
+        <button className="action-button block-button" onClick={() => setShowAppointmentHours(true)}>
+          Horas de cita
+        </button>
         <button className="action-button new-button" onClick={() => setShowNewAppointment(true)}>
           Nueva cita <PlusIcon />
         </button>
@@ -696,7 +721,7 @@ function CalendarPage() {
       <header className="home-header">
         <div className="logo-container">
           <div className="logo-circle">
-          <img src="/logo.jpg" alt="Logo"/>
+            <span>logo</span>
           </div>
         </div>
         <div className="banner">
@@ -1173,6 +1198,105 @@ function CalendarPage() {
                 Desbloquear
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Appointment Hours Modal */}
+      {showAppointmentHours && (
+        <div className="modal-overlay">
+          <div className="modal-container">
+            <h2 className="modal-title">Horas de Cita</h2>
+            <form onSubmit={handleAppointmentHoursSubmit}>
+              <div className="form-group">
+                <label>Fecha</label>
+                <div className="input-with-icon">
+                  <input
+                    type="text"
+                    value={format(parseISO(appointmentHours.date), "dd/MM/yyyy")}
+                    readOnly
+                    onClick={toggleMiniCalendar}
+                  />
+                  <div className="input-icons">
+                    <div onClick={toggleMiniCalendar} style={{ cursor: "pointer" }}>
+                      <ChevronDownIcon />
+                    </div>
+                  </div>
+                  {showMiniCalendar && (
+                    <div className="mini-calendar" onClick={(e) => e.stopPropagation()}>
+                      <div className="mini-calendar-header">
+                        <button type="button" className="nav-button" onClick={(e) => prevMiniMonth(e)}>
+                          <ChevronLeftIcon />
+                        </button>
+                        <span className="mini-calendar-month">
+                          {monthNames[miniCalendarDate.getMonth()]} {miniCalendarDate.getFullYear()}
+                        </span>
+                        <button type="button" className="nav-button" onClick={(e) => nextMiniMonth(e)}>
+                          <ChevronRightIcon />
+                        </button>
+                      </div>
+                      <div className="mini-calendar-grid">
+                        {daysOfWeek.map((day) => (
+                          <div key={day} className="mini-day-name">
+                            {day.substring(0, 1)}
+                          </div>
+                        ))}
+                        {Array.from({
+                          length: getFirstDayOfMonth(miniCalendarDate.getFullYear(), miniCalendarDate.getMonth()),
+                        }).map((_, i) => (
+                          <div key={`empty-${i}`} className="mini-empty-day"></div>
+                        ))}
+                        {Array.from({
+                          length: getDaysInMonth(miniCalendarDate.getFullYear(), miniCalendarDate.getMonth()),
+                        }).map((_, i) => {
+                          const day = new Date(miniCalendarDate.getFullYear(), miniCalendarDate.getMonth(), i + 1)
+                          const isSelected = isSameDay(day, parseISO(appointmentHours.date))
+                          return (
+                            <div
+                              key={`day-${i}`}
+                              className={`mini-calendar-day ${isSelected ? "selected" : ""}`}
+                              onClick={() => {
+                                setAppointmentHours({
+                                  ...appointmentHours,
+                                  date: format(day, "yyyy-MM-dd"),
+                                })
+                                setShowMiniCalendar(false)
+                              }}
+                            >
+                              {i + 1}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Hora Inicial</label>
+                <input
+                  type="time"
+                  value={appointmentHours.startTime}
+                  onChange={(e) => setAppointmentHours({ ...appointmentHours, startTime: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label>Hora Final</label>
+                <input
+                  type="time"
+                  value={appointmentHours.endTime}
+                  onChange={(e) => setAppointmentHours({ ...appointmentHours, endTime: e.target.value })}
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="cancel-button" onClick={() => setShowAppointmentHours(false)}>
+                  Cancelar
+                </button>
+                <button type="submit" className="submit-button">
+                  Guardar
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

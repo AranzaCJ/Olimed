@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import {jwtDecode} from "jwt-decode"
 import { Link, useNavigate } from "react-router-dom"
 import "./Auth.css"
 
@@ -10,25 +11,80 @@ function Login() {
   const [password, setPassword] = useState("")
   const navigate = useNavigate()
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    console.log("Login attempt with:", { clave, password })
-
+    let isPaciente = true
     let role = ""
-
-    if (clave === "Medico123") {
-      role = "medico"
-    } else if (clave === "Recep456") {
-      role = "recepcionista"
-    } else if (clave === "Patient") {
-      role = "paciente"
-    }else {
-      alert("Clave incorrecta. Intenta con una clave válida.")
-      return
+    // Validación de correo electrónico
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(clave)) {
+      isPaciente = false
     }
 
-    localStorage.setItem("userRole", role)
-    navigate("/home")
+    // Validación de la contraseña segura
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+    if (!passwordRegex.test(password)) {
+      alert(
+        "La contraseña debe tener al menos 8 caracteres, incluyendo una mayúscula, una minúscula y un número."
+      );
+      return;
+    }
+
+
+    console.log("Login attempt with:", { clave, password })
+
+
+    try {
+      let url = ""
+      if (isPaciente) {
+        role = "paciente"
+        url = "http://127.0.0.1:8000/auth/login/pacientes"
+    }
+      else if (clave[2] === '1') {
+        role = "medico"
+        url = "http://127.0.0.1:8000/auth/login/medicos"
+      }
+      else if (clave[2] === '2') {
+        role = "recepcionista"
+        url = "http://127.0.0.1:8000/auth/login/recepcionistas"
+      }
+      else {
+        alert("La clave no esta en el formato correcto")
+        return;
+      }
+      
+       // Creación de formulario
+    const formData = new URLSearchParams()
+    formData.append("username", clave)
+    formData.append("password", password)
+
+      const response = await fetch(url, {
+
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: formData.toString(),
+      })
+
+      const data = await response.json()
+      
+      if (response.ok) {
+        // Guarda el JWT en localStorage
+        localStorage.setItem("token", data.access_token)
+        localStorage.setItem("userRole", role)
+        navigate("/home")
+        const token = localStorage.getItem("token")
+        console.log(jwtDecode(token).role)
+      }else{
+        alert("Credenciales de inicio de sesión incorrectas")
+      }
+
+      
+    } catch (error){
+      console.error("Error en la solicitud:", error)
+      alert("Ocurrió un error al iniciar sesion")
+    }
   }
 
   const EyeIcon = () => (
@@ -50,9 +106,9 @@ function Login() {
   return (
     <div className="auth-container">
       <div className="auth-wrapper">
-      <div className="logo-section login-logo">
+        <div className="logo-section login-logo">
           <div className="logo-circle">
-          <img src="/logo.jpg" alt="Logo"/>
+            <img src="/logo.jpg" alt="Logo" />
           </div>
         </div>
 

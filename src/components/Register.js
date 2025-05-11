@@ -7,19 +7,43 @@ import "./Auth.css"
 function Register() {
   const [showPassword, setShowPassword] = useState(false)
   const [name, setName] = useState("")
-  const [age, setAge] = useState("")
+  const [birthDate, setBirthDate] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [acceptTerms, setAcceptTerms] = useState(false)
   const navigate = useNavigate()
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    console.log("Registration attempt with:", { name, age, email, password, acceptTerms })
-
-    // In a real application, you would create a new user account here
-    // For now, we'll just redirect to the homepage
-    navigate("/home")
+  
+    const payload = {
+      nombre: name,
+      correo: email,
+      fecha_nacimiento: birthDate,
+      password: password
+    }
+  
+    try {
+      const response = await fetch("http://localhost:8000/auth/register/pacientes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      })
+  
+      if (response.ok) {
+        const result = await response.json()
+        console.log("Registro exitoso:", result)
+        navigate("/login")
+      } else {
+        const errorData = await response.json()
+        alert("Error: " + errorData.detail)
+      }
+    } catch (error) {
+      console.error("Error al registrar:", error)
+      alert(error, " Falló la conexión con el servidor.")
+    }
   }
 
   // Simple Eye icons
@@ -93,14 +117,14 @@ function Register() {
                 </div>
 
                 <div className="form-field">
-                  <label htmlFor="age" className="field-label">
-                    Edad
+                  <label htmlFor="birthdate" className="field-label">
+                    Fecha de nacimiento
                   </label>
                   <input
-                    id="age"
-                    type="number"
-                    value={age}
-                    onChange={(e) => setAge(e.target.value)}
+                    id="birthdate"
+                    type="date"
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
                     className="field-input"
                     required
                   />
@@ -179,4 +203,3 @@ function Register() {
 }
 
 export default Register
-

@@ -1,16 +1,76 @@
 "use client"
-
+import { jwtDecode } from 'jwt-decode'
+import { useEffect } from "react"
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import "./SettingsPage.css"
-
 function SettingsPage() {
+  const token = localStorage.getItem("token")
   const navigate = useNavigate()
   const [activeOption, setActiveOption] = useState("password")
   const [showDropdown, setShowDropdown] = useState(false)
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [receptionistName, setReceptionistName] = useState("")
+  //const [receptionistSurname, setReceptionistSurname] = useState("")
+  const [receptionistUsername, setReceptionistUsername] = useState("")
+  const [receptionistPassword, setReceptionistPassword] = useState("")
+  const [receptionistConfirmPassword, setReceptionistConfirmPassword] = useState("")
+  //const [activeOption, setActiveOption] = useState('receptionist'); 
+  const [receptionistId, setReceptionistId] = useState(null)
+  const [receptionistClave, setReceptionistClave] = useState("")
+  const [medicoNombre, setMedicoNombre] = useState("")
+  
+  useEffect(() => {
+    const fetchReceptionist = async () => {
+      try {
+        const response = await fetch("http://127.0.0.1:8000/recepcionistas")
+        const data = await response.json()
+
+        if (response.ok && Array.isArray(data) && data.length > 0) {
+          const firstReceptionist = data[0]
+          setReceptionistName(firstReceptionist.nombre || "")
+          setReceptionistUsername(firstReceptionist.correo || "")
+          setReceptionistClave(firstReceptionist.clave || "")
+          setReceptionistId(firstReceptionist.idRecepcionista)
+          setReceptionistPassword("**********")
+          // Puedes guardar también la contraseña si es parte de los datos (no recomendado por seguridad)
+        } else {
+          setReceptionistName("------")
+          setReceptionistUsername("---------")
+          setReceptionistId(null)
+          setReceptionistPassword("---------")
+          setReceptionistClave("--------")
+          //console.warn("No se encontraron recepcionistas.")
+        }
+      } catch (error) {
+        console.error("Error al cargar recepcionistas:", error)
+      }
+
+      try{
+        
+        //console.log(jwtDecode(token).sub)
+        let idMedico = jwtDecode(token).sub
+        let url = "http://127.0.0.1:8000/medico/"+idMedico
+        const response = await fetch(url)
+        const data = await response.json()
+
+        if (response.ok && data != null){
+          console.log(data.nombre)
+          setMedicoNombre(data.nombre)
+        }else{
+          alert("Error al obtener los dato del medico")
+        }
+
+      }catch(error){
+        alert("Ocurrio un error al cargar los datos del medico")
+      }
+    }
+
+    fetchReceptionist()
+  }, [])
+
 
   // Toggle dropdown visibility
   const toggleDropdown = () => {
@@ -19,18 +79,175 @@ function SettingsPage() {
 
   // Handle logout
   const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("userRole");
     navigate("/login")
   }
 
   // Handle password change
-  const handlePasswordChange = (e) => {
+  const handlePasswordChange = async (e) => {
     e.preventDefault()
-    // Here you would implement the actual password change logic
-    alert("Contraseña cambiada exitosamente")
+    // Validación de la contraseña segura
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      alert(
+        "La contraseña debe tener al menos 8 caracteres, incluyendo una mayúscula, una minúscula y un número."
+      );
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      alert("Las contraseñas no coinciden.")
+      return
+    }
+
+    try{
+      const response = await fetch("http://127.0.0.1:8000/auth/change-password/medico", {
+
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password : newPassword 
+        })
+      })
+      
+      if(response.ok){
+        alert("Contraseña cambiada exitosamente")
+
+      }else{
+        alert("La contraseña actual ingresada es incorrecta")
+      }
+
+      
+    }catch(error){
+      alert("Error al tratar de procesar la solicitud")
+    }
+    
     setCurrentPassword("")
     setNewPassword("")
     setConfirmPassword("")
+    setActiveOption("password")
+    navigate("/settings")
   }
+
+  const handleReceptionistRegister = async () => {
+    if (
+      !receptionistName ||
+      //!receptionistSurname ||
+      !receptionistUsername ||
+      !receptionistPassword ||
+      !receptionistConfirmPassword
+    ) {
+      alert("Por favor, completa todos los campos.")
+      return
+    }
+    const nameRegex = /^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/;
+
+    if (!nameRegex.test(receptionistName)) {
+
+      alert("El nombre solo puede contener letras y espacios.");
+      return;
+    }
+    // Validación de correo electrónico
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(receptionistUsername)) {
+      alert("El usuario debe ser un correo electrónico válido.");
+      return;
+    }
+
+    // Validación de la contraseña segura
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+    if (!passwordRegex.test(receptionistPassword)) {
+      alert(
+        "La contraseña debe tener al menos 8 caracteres, incluyendo una mayúscula, una minúscula y un número."
+      );
+      return;
+    }
+
+    if (receptionistPassword !== receptionistConfirmPassword) {
+      alert("Las contraseñas no coinciden.")
+      return
+    }
+
+    // Encriptación de la contraseña antes de enviarla
+
+
+    try {
+
+      if (receptionistId == null) {
+        const response = await fetch("http://127.0.0.1:8000/auth/register/recepcionistas", {
+
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            nombre: receptionistName,
+            //surname: receptionistSurname,
+            correo: receptionistUsername,
+            password: receptionistPassword
+          })
+        })
+
+        const data = await response.json()
+
+        if (response.ok) {
+          alert("Recepcionista registrada con éxito.")
+          setReceptionistName(data.nombre)
+          //setReceptionistSurname("")
+          setReceptionistUsername(data.correo)
+          setReceptionistPassword("********")
+          setReceptionistClave(data.clave)
+          setReceptionistId(data.idRecepcionista)
+          setActiveOption("receptionist")
+        } else {
+          alert("Error al registrar: " + (data.detail || "verifica los datos"))
+        }
+      } else {
+        let url = "http://127.0.0.1:8000/recepcionista/"+receptionistId
+        const response = await fetch(url, {
+
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            nombre: receptionistName,
+            //surname: receptionistSurname,
+            correo: receptionistUsername,
+            password: receptionistPassword
+          })
+        })
+
+        const data = await response.json()
+
+        if (response.ok) {
+          alert("Recepcionista modificada con éxito.")
+          setReceptionistName(data.nombre)
+          //setReceptionistSurname("")
+          setReceptionistUsername(data.correo)
+          setReceptionistPassword("********")
+          setReceptionistClave(data.clave)
+          setReceptionistId(data.idRecepcionista)
+          setActiveOption("receptionist")
+        } else {
+          alert("Error al modificar: " + (data.detail || "verifica los datos"))
+        }
+      }
+
+    } catch (error) {
+      console.error("Error en la solicitud:", error)
+      alert("Ocurrió un error al modificar los datos de la recepcionista.")
+    }
+  }
+
+
+
+
 
   // Icons
   const BellIcon = () => (
@@ -159,7 +376,7 @@ function SettingsPage() {
       <header className="home-header">
         <div className="logo-container">
           <div className="logo-circle">
-          <img src="/logo.jpg" alt="Logo"/>
+            <img src="/logo.jpg" alt="Logo" />
           </div>
         </div>
         <div className="banner">
@@ -230,7 +447,7 @@ function SettingsPage() {
                   <h2>Datos personales</h2>
                   <div className="form-group">
                     <label>Usuario:</label>
-                    <input type="text" value="Doc.Olivera" readOnly />
+                    <input type="text" value={medicoNombre} readOnly />
                   </div>
                   <div className="form-group">
                     <label>Contraseña:</label>
@@ -291,20 +508,20 @@ function SettingsPage() {
                   <div className="form-row">
                     <div className="form-group">
                       <label>Nombre(s):</label>
-                      <input type="text" value="----------" readOnly />
+                      <input type="text" value={receptionistName} readOnly />
                     </div>
                     <div className="form-group">
-                      <label>Apellidos:</label>
-                      <input type="text" value="-------------" readOnly />
+                      <label>Clave:</label>
+                      <input type="text" value={receptionistClave} readOnly />
                     </div>
                   </div>
                   <div className="form-group">
-                    <label>Usuario:</label>
-                    <input type="text" value="Doc.Olivera" readOnly />
+                    <label>Correo:</label>
+                    <input type="text" value={receptionistUsername} readOnly />
                   </div>
                   <div className="form-group">
                     <label>Contraseña:</label>
-                    <input type="password" value="****************" readOnly />
+                    <input type="password" value={receptionistPassword} readOnly />
                   </div>
                   <button className="change-receptionist-btn" onClick={() => setActiveOption("change-receptionist")}>
                     Cambiar Recepcionista
@@ -313,35 +530,61 @@ function SettingsPage() {
               )}
 
               {activeOption === "change-receptionist" && (
+
                 <div className="settings-form">
                   <h2>Nuevos datos</h2>
                   <div className="form-row">
                     <div className="form-group">
                       <label>Nombre(s):</label>
-                      <input type="text" />
+                      <input
+                        type="text"
+                        value={receptionistName}
+                        onChange={(e) => setReceptionistName(e.target.value)}
+                      />
                     </div>
                     <div className="form-group">
-                      <label>Apellidos:</label>
-                      <input type="text" />
+                      <label>Clave:</label>
+                     <input
+                      type="text"
+                      value={receptionistClave}
+                      onChange={(e) => setReceptionistClave(e.target.value)}
+                    />
                     </div>
                   </div>
                   <div className="form-group">
-                    <label>Usuario:</label>
-                    <input type="text" />
+                    <label>Correo:</label>
+                    <input
+                      type="text"
+                      value={receptionistUsername}
+                      onChange={(e) => setReceptionistUsername(e.target.value)}
+                    />
                   </div>
                   <div className="form-group">
                     <label>Contraseña:</label>
-                    <input type="password" />
+                    <input
+                      type="password"
+                      value={receptionistPassword}
+                      onChange={(e) => setReceptionistPassword(e.target.value)}
+                    />
                   </div>
                   <div className="form-group">
                     <label>Confirmar contraseña:</label>
-                    <input type="password" />
+                    <input
+                      type="password"
+                      value={receptionistConfirmPassword}
+                      onChange={(e) => setReceptionistConfirmPassword(e.target.value)}
+                    />
                   </div>
                   <div className="form-actions receptionist-actions">
-                    <button type="button" className="submit-btn" onClick={() => setActiveOption("receptionist")}>
+                    <button
+                      type="button"
+                      className="submit-btn"
+                      onClick={handleReceptionistRegister}
+                    >
                       Cambiar Recepcionista
                     </button>
                   </div>
+
                 </div>
               )}
             </div>
