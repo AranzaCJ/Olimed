@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import "./PatientPage.css"
 import { format } from "date-fns"
+import { fetchPatientData } from "../utils/api"
 
 function PatientPage() {
   const navigate = useNavigate()
@@ -14,13 +15,16 @@ function PatientPage() {
   const [selectedPatient, setSelectedPatient] = useState(null)
   const [selectedAppointment, setSelectedAppointment] = useState(null)
   const [expandedPrescription, setExpandedPrescription] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
 
   // Load prescriptions from localStorage
   const loadPrescriptions = () => {
     const storedPrescriptions = JSON.parse(localStorage.getItem("prescriptions") || "[]")
     return storedPrescriptions
   }
-  // Sample patient data
+
+  // Sample patient data - will be replaced with API data
   const patients = [
     {
       id: 1,
@@ -143,6 +147,48 @@ function PatientPage() {
       setSelectedPatient(patient)
       setShowPatientDetails(true)
       setShowPatientHistory(false)
+
+      // Fetch patient data from API
+      fetchPatientDataFromAPI(patientId)
+    }
+  }
+
+  // Fetch patient data from API
+  const fetchPatientDataFromAPI = async (patientId) => {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const data = await fetchPatientData(patientId)
+
+      // Update the selected patient with API data
+      setSelectedPatient((prevPatient) => {
+        if (!prevPatient) return prevPatient
+
+        return {
+          ...prevPatient,
+          name: data.nombre,
+          contact: {
+            ...prevPatient.contact,
+            email: data.correo,
+            // Note: The API doesn't have phone fields in the schema, so we keep the existing ones
+          },
+          address: {
+            ...prevPatient.address,
+            full: data.direccion,
+          },
+          medicalInfo: {
+            ...prevPatient.medicalInfo,
+            bloodType: data.tipo_sangre,
+            birthDate: data.fecha_nacimiento,
+          },
+        }
+      })
+    } catch (err) {
+      setError("Error al cargar los datos del paciente. Por favor, inténtelo de nuevo.")
+      console.error("Error fetching patient data:", err)
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -344,7 +390,7 @@ function PatientPage() {
       <header className="home-header">
         <div className="logo-container">
           <div className="logo-circle">
-          <img src="/logo.jpg" alt="Logo"/>
+            <span>logo</span>
           </div>
         </div>
         <div className="banner">
@@ -404,74 +450,86 @@ function PatientPage() {
                     {showPatientDetails && (
                       <div className="patient-info">
                         <div className="patient-info-header">
-                          <h2>{patient.name}</h2>
+                          <h2>{selectedPatient.name}</h2>
                           <button className="toggle-button" onClick={() => setShowPatientDetails(false)}>
                             <ChevronUpIcon />
                           </button>
                         </div>
 
-                        <div className="info-field">
-                          <label>Edad:</label>
-                          <input type="text" value={patient.age} readOnly />
-                        </div>
+                        {isLoading ? (
+                          <div className="loading-indicator">Cargando datos del paciente...</div>
+                        ) : error ? (
+                          <div className="error-message">{error}</div>
+                        ) : (
+                          <>
+                            <div className="info-field">
+                              <label>Edad:</label>
+                              <input type="text" value={selectedPatient.age} readOnly />
+                            </div>
 
-                        <h3>Dirección</h3>
-                        <div className="info-row">
-                          <div className="info-field">
-                            <label>Estado:</label>
-                            <input type="text" value={patient.address.state} readOnly />
-                          </div>
-                          <div className="info-field">
-                            <label>Municipio:</label>
-                            <input type="text" value={patient.address.municipality} readOnly />
-                          </div>
-                        </div>
-                        <div className="info-row">
-                          <div className="info-field">
-                            <label>Calle:</label>
-                            <input type="text" value={patient.address.street} readOnly />
-                          </div>
-                          <div className="info-field">
-                            <label>Numero:</label>
-                            <input type="text" value={patient.address.number} readOnly />
-                          </div>
-                        </div>
+                            <h3>Dirección</h3>
+                            <div className="info-field">
+                              <label>Dirección completa:</label>
+                              <input
+                                type="text"
+                                value={
+                                  selectedPatient.address.full ||
+                                  `${selectedPatient.address.street} ${selectedPatient.address.number}, ${selectedPatient.address.municipality}, ${selectedPatient.address.state}`
+                                }
+                                readOnly
+                                className="full-width-input"
+                              />
+                            </div>
 
-                        <h3>Contacto</h3>
-                        <div className="info-field">
-                          <label>Correo electrónico:</label>
-                          <input type="text" value={patient.contact.email} readOnly />
-                        </div>
-                        <div className="info-row">
-                          <div className="info-field">
-                            <label>Teléfono 1:</label>
-                            <input type="text" value={patient.contact.phone1} readOnly />
-                          </div>
-                          <div className="info-field">
-                            <label>Teléfono 2:</label>
-                            <input type="text" value={patient.contact.phone2} readOnly />
-                          </div>
-                        </div>
+                            <h3>Contacto</h3>
+                            <div className="info-field">
+                              <label>Correo electrónico:</label>
+                              <input type="text" value={selectedPatient.contact.email} readOnly />
+                            </div>
+                            <div className="info-row">
+                              <div className="info-field">
+                                <label>Teléfono 1:</label>
+                                <input type="text" value={selectedPatient.contact.phone1} readOnly />
+                              </div>
+                              <div className="info-field">
+                                <label>Teléfono 2:</label>
+                                <input type="text" value={selectedPatient.contact.phone2} readOnly />
+                              </div>
+                            </div>
 
-                        <h3>Información médica</h3>
-                        <div className="info-field">
-                          <label>Alergias:</label>
-                          <textarea value={patient.medicalInfo.allergies} readOnly />
-                        </div>
-                        <div className="info-field">
-                          <label>Tipo de sangre:</label>
-                          <input type="text" value={patient.medicalInfo.bloodType} readOnly />
-                        </div>
+                            <h3>Información médica</h3>
+                            <div className="info-field">
+                              <label>Alergias:</label>
+                              <textarea value={selectedPatient.medicalInfo.allergies} readOnly />
+                            </div>
+                            <div className="info-field">
+                              <label>Tipo de sangre:</label>
+                              <input type="text" value={selectedPatient.medicalInfo.bloodType} readOnly />
+                            </div>
+                            <div className="info-field">
+                              <label>Fecha de nacimiento:</label>
+                              <input
+                                type="text"
+                                value={
+                                  selectedPatient.medicalInfo.birthDate
+                                    ? new Date(selectedPatient.medicalInfo.birthDate).toLocaleDateString()
+                                    : ""
+                                }
+                                readOnly
+                              />
+                            </div>
 
-                        <div className="patient-actions">
-                          <button className="delete-button">Eliminar Paciente</button>
-                          <button className="history-button" onClick={showHistory}>
-                            Historial
-                          </button>
-                          <button className="appointment-button" onClick={navigateToNewAppointment}>
-                            Nueva cita <PlusIcon />
-                          </button>
-                        </div>
+                            <div className="patient-actions">
+                              <button className="delete-button">Eliminar Paciente</button>
+                              <button className="history-button" onClick={showHistory}>
+                                Historial
+                              </button>
+                              <button className="appointment-button" onClick={navigateToNewAppointment}>
+                                Nueva cita <PlusIcon />
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </div>
                     )}
 
@@ -479,14 +537,14 @@ function PatientPage() {
                     {showPatientHistory && (
                       <div className="patient-history">
                         <div className="history-header">
-                          <h2>Historial de {patient.name}</h2>
+                          <h2>Historial de {selectedPatient.name}</h2>
                           <button className="back-button" onClick={showDetails}>
                             Volver
                           </button>
                         </div>
 
                         <div className="appointments-list">
-                          {patient.appointments.map((appointment) => (
+                          {selectedPatient.appointments.map((appointment) => (
                             <div key={appointment.id} className="appointment-item">
                               <div className="appointment-header" onClick={() => toggleAppointment(appointment.id)}>
                                 <span className="appointment-date">{appointment.date}</span>
@@ -517,7 +575,7 @@ function PatientPage() {
                           ))}
                           {/* Display prescriptions in patient history */}
                           {loadPrescriptions()
-                            .filter((prescription) => prescription.patientId === patient.id)
+                            .filter((prescription) => prescription.patientId === selectedPatient.id)
                             .map((prescription) => (
                               <div key={`prescription-${prescription.id}`} className="appointment-item">
                                 <div className="appointment-header" onClick={() => togglePrescription(prescription.id)}>
