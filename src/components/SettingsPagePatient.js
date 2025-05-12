@@ -1,10 +1,13 @@
 "use client"
-
-import { useState } from "react"
+import { jwtDecode } from 'jwt-decode'
+import { useEffect, useState, useMemo } from "react"
+import { parseISO, differenceInYears } from "date-fns"
 import { useNavigate } from "react-router-dom"
 import "./SettingsPage.css"
 
 function SettingsPage() {
+  const token = localStorage.getItem("token")
+  let patientId = jwtDecode(token).sub
   const navigate = useNavigate()
   //const [activeOption, setActiveOption] = useState("password")
   const [showDropdown, setShowDropdown] = useState(false)
@@ -13,37 +16,99 @@ function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
 
   const [activeOption, setActiveOption] = useState("datosPersonales")
-
+/*
   const [personalData, setPersonalData] = useState({
     nombre: "------------",
-    edad: "",
-    estado: ".....",
-    municipio: "...",
-    calle: "----",
-    numero: "------",
+    edad: "..."
   })
 
   const [contactData, setContactData] = useState({
+    direccion: "....",
     correo: "-----",
     telefono1: "222",
-    telefono2: "2222",
+    telefono2: "2222"
   })
 
   const [medicalData, setMedicalData] = useState({
     alergias: "22222",
-    tipoSangre: "2222",
-  })
+    tipoSangre: "2222"
+  })*/
 
-  const handleChange = (e, section, key) => {
-    const value = e.target.value
-    if (section === "personal") {
-      setPersonalData({ ...personalData, [key]: value })
-    } else if (section === "contact") {
-      setContactData({ ...contactData, [key]: value })
-    } else if (section === "medical") {
-      setMedicalData({ ...medicalData, [key]: value })
+  const [patient, setPatient] = useState(null)
+
+  // Efecto para traer el paciente una vez al montar o al cambiar patientId
+  useEffect(() => {
+    if (!patientId) return
+
+    const fetchPaciente = async () => {
+      try {
+        const res = await fetch(`http://127.0.0.1:8000/paciente/${patientId}`)
+        if (!res.ok) throw new Error("Error al cargar paciente")
+        const data = await res.json()
+        setPatient(data)
+      } catch (err) {
+        console.error("fetchPaciente:", err)
+        setPatient(null)
+      }
     }
-  }
+
+    fetchPaciente()
+  }, [patientId])
+
+  // Derivados de patient
+  const personalData = useMemo(() => {
+    if (!patient) return { nombre: "–", edad: "" }
+    const edad = patient.fecha_nacimiento
+      ? differenceInYears(new Date(), parseISO(patient.fecha_nacimiento))
+      : ""
+    return { nombre: patient.nombre, edad }
+  }, [patient])
+ 
+
+  const contactData = useMemo(() => {
+    if (!patient) return { direccion: "", correo: "", telefono1: "", telefono2: "" }
+    const t = patient.Telefonos || []
+    return {
+      direccion: patient.direccion || "",
+      correo: patient.correo || "",
+      telefono1: t[0]?.telefono || "",
+      telefono2: t[1]?.telefono || "",
+    }
+  }, [patient])
+
+  const medicalData = useMemo(() => {
+    if (!patient) return { alergias: "", tipoSangre: "" }
+    return {
+      alergias: (patient.Alergias || []).map(a => a.nombre).join(", "),
+      tipoSangre: patient.tipo_sangre || "",
+    }
+  }, [patient])
+
+  const handleSubmit = e => {
+  e.preventDefault();
+
+  // Construye un mensaje con los datos
+  const mensaje = `
+Datos Personales:
+  Nombre: ${personalData.nombre}
+  Edad: ${personalData.edad}
+
+Información de Contacto:
+  Dirección: ${contactData.direccion}
+  Correo: ${contactData.correo}
+  Teléfono 1: ${contactData.telefono1}
+  Teléfono 2: ${contactData.telefono2}
+
+Información Médica:
+  Alergias: ${medicalData.alergias}
+  Tipo de Sangre: ${medicalData.tipoSangre}
+  `;
+
+  // Muestra la alerta
+  alert(mensaje);
+
+  // Aquí podrías seguir enviando al servidor...
+};
   // Toggle dropdown visibility
   const toggleDropdown = () => {
     setShowDropdown(!showDropdown)
@@ -235,149 +300,141 @@ function SettingsPage() {
 
         {/* Main Content */}
         <main className="main-content settings-content">
-      <div className="settings-container">
-        <div className="settings-sidebar">
-          <div
-            className={`settings-option ${activeOption === "datosPersonales" ? "active" : ""}`}
-            onClick={() => setActiveOption("datosPersonales")}
-          >
-            <div className="option-icon">
-              <UserIcon />
+          <div className="settings-container">
+            <div className="settings-sidebar">
+              <div
+                className={`settings-option ${activeOption === "datosPersonales" ? "active" : ""}`}
+                onClick={() => setActiveOption("datosPersonales")}
+              >
+                <div className="option-icon">
+                  <UserIcon />
+                </div>
+                <span>Datos Personales</span>
+              </div>
+              <div
+                className={`settings-option ${activeOption === "infoContacto" ? "active" : ""}`}
+                onClick={() => setActiveOption("infoContacto")}
+              >
+                <div className="option-icon">
+                  <ReceptionistIcon />
+                </div>
+                <span>Informacion de contacto</span>
+              </div>
+              <div
+                className={`settings-option ${activeOption === "infoMedica" ? "active" : ""}`}
+                onClick={() => setActiveOption("infoMedica")}
+              >
+                <div className="option-icon">
+                  <ReceptionistIcon />
+                </div>
+                <span>Informacion medica</span>
+              </div>
+              <div
+                className={`settings-option ${activeOption === "password" ? "active" : ""}`}
+                onClick={() => setActiveOption("password")}
+              >
+                <div className="option-icon">
+                  <LockIcon />
+                </div>
+                <span>Cambio de contraseña</span>
+              </div>
             </div>
-            <span>Datos Personales</span>
-          </div>
-          <div
-            className={`settings-option ${activeOption === "infoContacto" ? "active" : ""}`}
-            onClick={() => setActiveOption("infoContacto")}
-          >
-            <div className="option-icon">
-              <ReceptionistIcon />
-            </div>
-            <span>Informacion de contacto</span>
-          </div>
-          <div
-            className={`settings-option ${activeOption === "infoMedica" ? "active" : ""}`}
-            onClick={() => setActiveOption("infoMedica")}
-          >
-            <div className="option-icon">
-              <ReceptionistIcon />
-            </div>
-            <span>Informacion medica</span>
-          </div>
-          <div
-            className={`settings-option ${activeOption === "password" ? "active" : ""}`}
-            onClick={() => setActiveOption("password")}
-          >
-            <div className="option-icon">
-              <LockIcon />
-            </div>
-            <span>Cambio de contraseña</span>
-          </div>
-        </div>
 
-        <div className="settings-panel">
-          {activeOption === "datosPersonales" && (
-            <div className="settings-form">
-              <h2>Datos personales</h2>
-              <div className="form-group">
-                <label>Nombre:</label>
-                <input type="text" value={personalData.nombre} onChange={(e) => handleChange(e, "personal", "nombre")} />
-              </div>
-              <div className="form-group">
-                <label>Edad:</label>
-                <input type="text" value={personalData.edad} onChange={(e) => handleChange(e, "personal", "edad")} />
-              </div>
-              <h2>Dirección</h2>
-              <div className="form-group">
-                <label>Estado:</label>
-                <input type="text" value={personalData.estado} onChange={(e) => handleChange(e, "personal", "estado")} />
-              </div>
-              <div className="form-group">
-                <label>Municipio:</label>
-                <input type="text" value={personalData.municipio} onChange={(e) => handleChange(e, "personal", "municipio")} />
-              </div>
-              <div className="form-group">
-                <label>Calle:</label>
-                <input type="text" value={personalData.calle} onChange={(e) => handleChange(e, "personal", "calle")} />
-              </div>
-              <div className="form-group">
-                <label>Numero:</label>
-                <input type="text" value={personalData.numero} onChange={(e) => handleChange(e, "personal", "numero")} />
-              </div>
-              <div className="form-actions">
-                <button type="submit" className="submit-btn">Guardar</button>
-              </div>
-            </div>
-          )}
+            <div className="settings-panel">
+              {activeOption === "datosPersonales" && (
+                <div className="settings-form">
+                  <form onSubmit={handleSubmit}>
+                    {/* ... tus campos ... */}
+                    <div className="form-actions">
+                      <button type="submit" className="submit-btn">
+                        Guardar Todos
+                      </button>
+                    </div>
+                  </form>
+                  <h2>Datos personales</h2>
+                  <div className="form-group">
+                    <label>Nombre:</label>
+                    <input type="text" value={personalData.nombre} />
+                  </div>
+                  <div className="form-group">
+                    <label>Edad:</label>
+                    <input type="text" value={personalData.edad} />
+                  </div>
+                </div>
+              )}
 
-          {activeOption === "infoContacto" && (
-            <div className="settings-form">
-              <h2>Información de Contacto</h2>
-              <div className="info-field">
-                <label>Correo electrónico:</label>
-                <input type="text" value={contactData.correo} onChange={(e) => handleChange(e, "contact", "correo")} />
-              </div>
-              <div className="info-row">
-                <div className="info-field">
-                  <label>Teléfono 1:</label>
-                  <input type="text" value={contactData.telefono1} onChange={(e) => handleChange(e, "contact", "telefono1")} />
+              {activeOption === "infoContacto" && (
+                <div className="settings-form">
+                  <h2>Información de Contacto</h2>
+                  <div className="form-group">
+                    <label>Dirección:</label>
+                    <input type="text" value={contactData.direccion} />
+                  </div>
+                  <div className="info-field">
+                    <label>Correo electrónico:</label>
+                    <input type="text" value={contactData.correo} />
+                  </div>
+                  <div className="info-row">
+                    <div className="info-field">
+                      <label>Teléfono 1:</label>
+                      <input type="text" value={contactData.telefono1} />
+                    </div>
+                    <div className="info-field">
+                      <label>Teléfono 2:</label>
+                      <input type="text" value={contactData.telefono2} />
+                    </div>
+                  </div>
+                  <div className="form-actions">
+                    <button type="submit" className="submit-btn">Guardar</button>
+                  </div>
                 </div>
-                <div className="info-field">
-                  <label>Teléfono 2:</label>
-                  <input type="text" value={contactData.telefono2} onChange={(e) => handleChange(e, "contact", "telefono2")} />
-                </div>
-              </div>
-              <div className="form-actions">
-                <button type="submit" className="submit-btn">Guardar</button>
-              </div>
-            </div>
-          )}
+              )}
 
-          {activeOption === "infoMedica" && (
-            <div className="settings-form">
-              <h2>Información médica</h2>
-              <div className="form-group">
-                <label>Administra tus datos medicos. Estos datos son privados y no se mostraran a otros usuarios. Consulta la politica de privacidad</label>
-              </div>
-              <div className="info-field">
-                <label>Alergias:</label>
-                <textarea value={medicalData.alergias} onChange={(e) => handleChange(e, "medical", "alergias")} />
-              </div>
-              <div className="info-field">
-                <label>Tipo de sangre:</label>
-                <input type="text" value={medicalData.tipoSangre} onChange={(e) => handleChange(e, "medical", "tipoSangre")} />
-              </div>
-              <div className="form-actions">
-                <button type="submit" className="submit-btn">Guardar</button>
-              </div>
-            </div>
-          )}
+              {activeOption === "infoMedica" && (
+                <div className="settings-form">
+                  <h2>Información médica</h2>
+                  <div className="form-group">
+                    <label>Administra tus datos medicos. Estos datos son privados y no se mostraran a otros usuarios. Consulta la politica de privacidad</label>
+                  </div>
+                  <div className="info-field">
+                    <label>Alergias:</label>
+                    <textarea value={medicalData.alergias}  />
+                  </div>
+                  <div className="info-field">
+                    <label>Tipo de sangre:</label>
+                    <input type="text" value={medicalData.tipoSangre} />
+                  </div>
+                  <div className="form-actions">
+                    <button type="submit" className="submit-btn">Guardar</button>
+                  </div>
+                </div>
+              )}
 
-          {activeOption === "password" && (
-            <div className="settings-form">
-              <h2>Cambiar contraseña</h2>
-              <form>
-                <div className="form-group">
-                  <label>Contraseña actual:</label>
-                  <input type="password" />
+              {activeOption === "password" && (
+                <div className="settings-form">
+                  <h2>Cambiar contraseña</h2>
+                  <form>
+                    <div className="form-group">
+                      <label>Contraseña actual:</label>
+                      <input type="password" />
+                    </div>
+                    <div className="form-group">
+                      <label>Nueva contraseña:</label>
+                      <input type="password" />
+                    </div>
+                    <div className="form-group">
+                      <label>Confirmar contraseña:</label>
+                      <input type="password" />
+                    </div>
+                    <div className="form-actions">
+                      <button type="submit" className="submit-btn">Guardar</button>
+                    </div>
+                  </form>
                 </div>
-                <div className="form-group">
-                  <label>Nueva contraseña:</label>
-                  <input type="password" />
-                </div>
-                <div className="form-group">
-                  <label>Confirmar contraseña:</label>
-                  <input type="password" />
-                </div>
-                <div className="form-actions">
-                  <button type="submit" className="submit-btn">Guardar</button>
-                </div>
-              </form>
+              )}
             </div>
-          )}
-        </div>
-      </div>
-    </main>
+          </div>
+        </main>
       </div>
     </div>
   )

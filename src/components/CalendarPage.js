@@ -1,14 +1,19 @@
 "use client"
-
-import { useState, useEffect } from "react"
+import { jwtDecode } from 'jwt-decode'
+import { useEffect } from "react"
+import { useState } from "react"
+//import { useState, useEffect } from "react"
 import "./CalendarPage.css"
 import { useNavigate, useLocation } from "react-router-dom"
 import { format, addMonths, subMonths, isSameDay, parseISO, addDays } from "date-fns"
+
+//const [patientList, setPatientList] = useState([]);
 
 function CalendarPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [currentDate, setCurrentDate] = useState(new Date())
+  const [patientList, setPatientList] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [showNewAppointment, setShowNewAppointment] = useState(false)
   const [showBlockDays, setShowBlockDays] = useState(false)
@@ -39,9 +44,29 @@ function CalendarPage() {
 
   // Check if we should open new appointment modal from navigation
   useEffect(() => {
+    const fetchPacientes = async () => {
+      try {
+        const response = await fetch("http://127.0.0.1:8000/pacientes");
+        if (!response.ok) throw new Error("Error al cargar pacientes");
+
+        const data = await response.json();  
+
+        // Mapeamos al formato { id, name }
+        const list = data.map(p => ({
+          id: p.idPaciente,
+          name: p.nombre
+        }));
+
+        setPatientList(list);
+      } catch (err) {
+        console.error(err);
+        setPatientList([]); // o algún valor por defecto
+      }
+    };
+    fetchPacientes();
+  
     if (location.state?.openNewAppointment) {
       setShowNewAppointment(true)
-
       // Si se pasó una fecha seleccionada, usarla
       if (location.state.selectedDate) {
         const selectedDateObj = parseISO(location.state.selectedDate)
@@ -62,16 +87,9 @@ function CalendarPage() {
         })
       }
     }
-  }, [location.state])
 
-  // Sample patient data - this would normally come from an API
-  const patientList = [
-    { id: 1, name: "Andrei Martinez Bahena" },
-    { id: 2, name: "Aranza Castañeda Juarez" },
-    { id: 3, name: "Daniela Zayuri Sanchez Gomez" },
-    { id: 4, name: "Carlos Rodriguez Perez" },
-    { id: 5, name: "Maria Fernanda Lopez" },
-  ]
+    
+  }, [location.state])
 
   // Function to get patient name by ID
   const getPatientNameById = (id) => {
