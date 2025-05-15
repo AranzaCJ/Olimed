@@ -6,6 +6,7 @@ import { useState } from "react"
 import "./CalendarPage.css"
 import { useNavigate, useLocation } from "react-router-dom"
 import { format, addMonths, subMonths, isSameDay, parseISO, addDays } from "date-fns"
+import { type } from '@testing-library/user-event/dist/type'
 
 //const [patientList, setPatientList] = useState([]);
 
@@ -49,7 +50,7 @@ function CalendarPage() {
         const response = await fetch("http://127.0.0.1:8000/pacientes");
         if (!response.ok) throw new Error("Error al cargar pacientes");
 
-        const data = await response.json();  
+        const data = await response.json();
 
         // Mapeamos al formato { id, name }
         const list = data.map(p => ({
@@ -64,7 +65,7 @@ function CalendarPage() {
       }
     };
     fetchPacientes();
-  
+
     if (location.state?.openNewAppointment) {
       setShowNewAppointment(true)
       // Si se pasó una fecha seleccionada, usarla
@@ -88,7 +89,7 @@ function CalendarPage() {
       }
     }
 
-    
+
   }, [location.state])
 
   // Function to get patient name by ID
@@ -100,7 +101,7 @@ function CalendarPage() {
   // Dropdown states
   const [showTimeDropdown, setShowTimeDropdown] = useState(false)
   const [showReasonDropdown, setShowReasonDropdown] = useState(false)
-  const [selectedTime, setSelectedTime] = useState("10:00 am")
+  const [selectedTime, setSelectedTime] = useState(null)
   const [selectedReason, setSelectedReason] = useState("Vacaciones")
   const [showUnblockModal, setShowUnblockModal] = useState(false)
   const [blockToUnblock, setBlockToUnblock] = useState(null)
@@ -111,6 +112,7 @@ function CalendarPage() {
     date: format(selectedDate, "yyyy-MM-dd"),
     startTime: "09:00",
     endTime: "18:00",
+    duration: 30,
   })
 
   // Patient search dropdown
@@ -145,7 +147,31 @@ function CalendarPage() {
     .map((patient) => patient.name)
 
   // Time options
-  const timeOptions = [
+  const [timeOptions, setTimeOptions] = useState([])
+  useEffect(() => {
+    const cargarHoras = async () => {
+      try {
+        const res = await fetch(`http://localhost:8000/fechasDisponibles?fecha=${newAppointment.date}`)
+        const data = await res.json()
+        setTimeOptions(data)
+
+        const disponible = data.find(h => h.disponible === 1)
+        if (disponible) {
+          setSelectedTime(disponible)
+        }
+
+      } catch (err) {
+        console.error("Error al cargar horarios:", err)
+      }
+    }
+
+    if (newAppointment.date) {
+      cargarHoras()
+    }
+
+  }, [newAppointment.date])  // Se ejecuta cada vez que cambia la fecha seleccionada
+
+  /*const timeOptions = [
     "8:00 am",
     "8:30 am",
     "9:00 am",
@@ -166,7 +192,7 @@ function CalendarPage() {
     "4:30 pm",
     "5:00 pm",
     "5:30 pm",
-  ]
+  ]*/
 
   // Reason options
   const reasonOptions = ["Vacaciones", "Día festivo", "Capacitación", "Mantenimiento", "Otro"]
@@ -383,11 +409,53 @@ function CalendarPage() {
     })
   }
 
-  // Add this after the other handler functions
-  const handleAppointmentHoursSubmit = (e) => {
+  //Modificaremos
+  // Add this after the other handler functions esto sirve para generar citas
+  const handleAppointmentHoursSubmit = async (e) => {
     e.preventDefault()
     // Here you would typically save the appointment hours to your backend
     console.log("Appointment hours set:", appointmentHours)
+    const horarios = []
+    let [h, m] = appointmentHours.startTime.split(":").map(Number)
+    const [endH, endM] = appointmentHours.endTime.split(":").map(Number)
+    const duracionCita = parseInt(appointmentHours.duration)
+    const fecha = appointmentHours.date
+
+    while (h < endH || (h === endH && m < endM)) {
+      const horaActual = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`
+      horarios.push(horaActual)
+      m += duracionCita
+      if (m >= 60) {
+        h += Math.floor(m / 60)
+        m = m % 60
+      }
+    }
+
+    for (const hora of horarios) {
+      console.log(hora)
+    }
+
+    for (const hora of horarios) {
+      try {
+        const url = "http://127.0.0.1:8000/fechasDisponibles"
+        await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            fecha: `${fecha}T${hora}:00`,
+            disponible: 1,
+            seleccionado: 0,
+          })
+        })
+      } catch (error) {
+        console.log("Error al enviar" + hora, error)
+      }
+    }
+
+    alert("Horario creados correctamente")
+
     setShowAppointmentHours(false)
     // Reset form
     setAppointmentHours({
@@ -739,7 +807,7 @@ function CalendarPage() {
       <header className="home-header">
         <div className="logo-container">
           <div className="logo-circle">
-             <img src="/logo.jpg" alt="Logo"/>
+            <img src="/logo.jpg" alt="Logo" />
           </div>
         </div>
         <div className="banner">
@@ -806,9 +874,8 @@ function CalendarPage() {
                 return (
                   <div
                     key={day.toString()}
-                    className={`calendar-day ${isToday ? "today" : ""} ${
-                      isSelected ? "selected" : ""
-                    } ${hasAppt ? "has-appointment" : ""} ${isDayBlocked ? "blocked" : ""}`}
+                    className={`calendar-day ${isToday ? "today" : ""} ${isSelected ? "selected" : ""
+                      } ${hasAppt ? "has-appointment" : ""} ${isDayBlocked ? "blocked" : ""}`}
                     onClick={() => handleDateClick(day)}
                   >
                     {dayNumber}
@@ -967,7 +1034,15 @@ function CalendarPage() {
               <div className="form-group">
                 <label>Hora</label>
                 <div className="input-with-icon">
-                  <input type="text" value={selectedTime} readOnly onClick={toggleTimeDropdown} />
+                  <input type="text" value={
+                    selectedTime && selectedTime.fecha
+                      ? new Date(selectedTime.fecha).toLocaleTimeString("es-MX", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                      : ""
+                  }
+                    readOnly onClick={toggleTimeDropdown} />
                   <div className="input-icons">
                     <div onClick={toggleTimeDropdown} style={{ cursor: "pointer" }}>
                       <ChevronDownIcon />
@@ -975,14 +1050,18 @@ function CalendarPage() {
                   </div>
                   {showTimeDropdown && (
                     <div className="dropdown-menu">
-                      {timeOptions.map((time, index) => {
+                      {timeOptions.map((time) => {
                         // Verificar si la hora está ocupada
-                        const isBooked = isTimeSlotBooked(parseISO(newAppointment.date), time)
-                        console.log(`Renderizando hora ${time}: ${isBooked ? "OCUPADA" : "disponible"}`)
+                        const isBooked = time.disponible === 0 ? true : false;
+                        const hora = new Date(time.fecha).toLocaleTimeString("es-MX", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                        console.log(`Renderizando hora ${time.fecha}: ${isBooked ? "OCUPADA" : "disponible"}`)
 
                         return (
                           <div
-                            key={index}
+                            key={time.idFecha}
                             className={`dropdown-item ${isBooked ? "disabled" : ""}`}
                             onClick={() => {
                               if (!isBooked) {
@@ -997,7 +1076,7 @@ function CalendarPage() {
                               color: isBooked ? "#999" : "inherit",
                             }}
                           >
-                            {time} {isBooked && "(Ocupado)"}
+                            {hora} {isBooked && "(Ocupado)"}
                           </div>
                         )
                       })}
@@ -1304,6 +1383,14 @@ function CalendarPage() {
                   type="time"
                   value={appointmentHours.endTime}
                   onChange={(e) => setAppointmentHours({ ...appointmentHours, endTime: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label>Duracion de cada cita</label>
+                <input
+                  type="number"
+                  value={appointmentHours.duration}
+                  onChange={(e) => setAppointmentHours({ ...appointmentHours, duration: e.target.value })}
                 />
               </div>
               <div className="modal-actions">
