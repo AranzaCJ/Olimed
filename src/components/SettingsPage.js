@@ -543,12 +543,8 @@ function SettingsPage() {
                       />
                     </div>
                     <div className="form-group">
-                      <label>Clave:</label>
-                     <input
-                      type="text"
-                      value={receptionistClave}
-                      onChange={(e) => setReceptionistClave(e.target.value)}
-                    />
+                       <label>Clave:</label>
+                      <input type="text" value={receptionistClave} readOnly />
                     </div>
                   </div>
                   <div className="form-group">

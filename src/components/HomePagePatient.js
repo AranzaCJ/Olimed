@@ -1,5 +1,6 @@
 "use client"
-
+import { useEffect } from "react";
+import { jwtDecode } from "jwt-decode"; 
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import "./HomePage.css"
@@ -7,7 +8,57 @@ import "./HomePage.css"
 function HomePage() {
   const [showDropdown, setShowDropdown] = useState(false)
   const navigate = useNavigate()
+  const [notifications, setNotifications] = useState([]);
+useEffect(() => {
+  const token = localStorage.getItem("token") 
+  if (token) {
+    try {
+      const decoded = jwtDecode(token)
+      console.log("Contenido del token:", decoded)
+    } catch (error) {
+      console.error("Error al decodificar el token:", error)
+    }
+  } else {
+    console.warn("No se encontró token en localStorage")
+  }
+}, [])
 
+
+  useEffect(() => {
+  const token = localStorage.getItem("token");
+  if (token) {
+    try {
+      const decoded = jwtDecode(token);
+      console.log("Contenido del token:", decoded);
+
+      const idPaciente = decoded.sub;
+
+      fetch(`http://127.0.0.1:8000/paciente/1/notificaciones`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error("Error en la respuesta del servidor");
+          return res.json();
+        })
+        .then((data) => {
+          console.log("Notificaciones:", data);
+          setNotifications(data);
+        })
+        .catch((err) => console.error("Error al obtener notificaciones:", err));
+    } catch (error) {
+      console.error("Error al decodificar el token:", error);
+    }
+  } else {
+    console.warn("No se encontró token en localStorage");
+  }
+}, []);
+
+
+  
   // Toggle dropdown visibility
   const toggleDropdown = () => {
     setShowDropdown(!showDropdown)
@@ -26,33 +77,7 @@ function HomePage() {
   }
 
   // Sample notification data
-  const notifications = [
-    {
-      id: 1,
-      type: "user",
-      content:
-        "Patien    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi vehicula auctor eros sed hendrerit. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Maecenas tincidunt ex eget tincidunt sagittis",
-    },
-    {
-      id: 2,
-      type: "calendar",
-      content:
-        "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi vehicula auctor eros sed hendrerit. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Maecenas tincidunt ex eget tincidunt sagittis",
-    },
-    {
-      id: 3,
-      type: "payment",
-      content:
-        'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi vehicula auctor eros sed hendrerit. "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi vehicula auctor eros sed hendrerit. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Maecenas tincidunt ex eget tincidunt sagittis',
-    },
-    {
-      id: 4,
-      type: "user",
-      content:
-        "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi vehicula auctor eros sed hendrerit. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Maecenas tincidunt ex eget tincidunt sagittis",
-    },
-  ]
-
+  
   // Icons for the sidebar and notifications
   const BellIcon = () => (
     <svg
@@ -224,12 +249,14 @@ function HomePage() {
         {/* Main Content */}
         <main className="main-content">
           {notifications.map((notification) => (
-            <div className="notification-item" key={notification.id}>
-              <div className="notification-icon">{renderNotificationIcon(notification.type)}</div>
-              <div className="notification-content">
-                <p>{notification.content}</p>
-              </div>
-            </div>
+            <div className="notification-item" key={notification.idNotificacion}>
+            <div className="notification-icon">{renderNotificationIcon(notification.tipoNotificacion)}</div>
+            <div className="notification-content">
+            <h4>{notification.titulo}</h4>
+            <p>{notification.mensaje}</p>
+            <small>{new Date(notification.fecha_creacion).toLocaleString()}</small>
+    </div>
+  </div>
           ))}
         </main>
       </div>
