@@ -63,19 +63,40 @@ useEffect(() => {
   const toggleDropdown = () => {
     setShowDropdown(!showDropdown)
   }
+const handleLogout = () => {
+  localStorage.clear();
+  navigate("/login", { replace: true });
+};
 
-  // Handle logout
-  const handleLogout = () => {
-    // In a real app, you would clear authentication tokens/cookies here
-    navigate("/login")
+const handleDeleteAccount = async () => {
+  const token = localStorage.getItem("token");
+  const patientId = jwtDecode(token).sub;
+  //const navigate = useNavigate();
+  const ok = window.confirm("¿Estás seguro de querer eliminar tu cuenta?");
+  if (!ok) return;
+
+  try {
+    const res = await fetch(
+      `http://127.0.0.1:8000/paciente/${patientId}`,
+      {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!res.ok) throw new Error("Error al eliminar cuenta");
+
+    // Limpia el estado de sesión y redirige al login
+    localStorage.clear();
+    navigate("/login", { replace: true });
+  } catch (err) {
+    console.error(err);
+    alert("No se pudo eliminar la cuenta. Intenta de nuevo más tarde.");
   }
-
-  // Handle account deletion
-  const handleDeleteAccount = () => {
-    // In a real app, you would show a confirmation dialog and then delete the account
-    alert("Esta función eliminaría tu cuenta después de confirmación.")
-  }
-
+};
   // Sample notification data
   
   // Icons for the sidebar and notifications

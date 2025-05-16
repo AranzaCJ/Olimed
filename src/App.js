@@ -25,24 +25,24 @@ function App() {
   const getHomeComponent = () => {
     if (userRole === "recepcionista") return <HomePageRecep />;
     else if (userRole === "paciente") return <HomePagePatient />;
-    return <HomePage />;
+    else if (userRole === "medico") return <HomePage />;
   }
 
   const getCalendarComponent = () => {
     if (userRole === "recepcionista") return <CalendarPageRecep />
     else if (userRole === "paciente") return <CalendarPagePatient />;
-    return <CalendarPage />
+    else return <CalendarPage />;
   }
 
   const getPatientComponent = () => {
     if (userRole === "recepcionista") return <PatientPageRecep />
     else if (userRole === "paciente") return <PatientPagePatient />;
-    return <PatientPage />
+    else if (userRole === "medico")  return <PatientPage />;
   }
 
   const getSettingComponent = () => {
     if (userRole === "paciente") return <SettingsPagePatient />;
-    return <SettingsPage />
+    else if (userRole === "medico") return <SettingsPage />
   }
   return (
     <Router>
