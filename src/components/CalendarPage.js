@@ -171,28 +171,6 @@ function CalendarPage() {
 
   }, [newAppointment.date])  // Se ejecuta cada vez que cambia la fecha seleccionada
 
-  /*const timeOptions = [
-    "8:00 am",
-    "8:30 am",
-    "9:00 am",
-    "9:30 am",
-    "10:00 am",
-    "10:30 am",
-    "11:00 am",
-    "11:30 am",
-    "12:00 pm",
-    "12:30 pm",
-    "1:00 pm",
-    "1:30 pm",
-    "2:00 pm",
-    "2:30 pm",
-    "3:00 pm",
-    "3:30 pm",
-    "4:00 pm",
-    "4:30 pm",
-    "5:00 pm",
-    "5:30 pm",
-  ]*/
 
   // Reason options
   const reasonOptions = ["Vacaciones", "Día festivo", "Capacitación", "Mantenimiento", "Otro"]
@@ -316,7 +294,7 @@ function CalendarPage() {
   }
 
   // Añadir esta función para depuración
-  const logAppointmentsAndTimes = (date) => {
+  /*const logAppointmentsAndTimes = (date) => {
     console.log("Fecha seleccionada:", format(date, "yyyy-MM-dd"))
     const appts = getAppointmentsForDate(date)
     console.log("Citas para esta fecha:", appts)
@@ -325,14 +303,14 @@ function CalendarPage() {
       const isBooked = isTimeSlotBooked(date, time)
       console.log(`Hora ${time}: ${isBooked ? "OCUPADA" : "disponible"}`)
     })
-  }
+  }*/
 
   // Handle date selection
   const handleDateClick = (date) => {
     setSelectedDate(date)
 
     // Depurar las citas y horarios
-    logAppointmentsAndTimes(date)
+    //logAppointmentsAndTimes(date)
 
     // Check if date is blocked
     const block = getBlockForDate(date)
@@ -447,6 +425,7 @@ function CalendarPage() {
             fecha: `${fecha}T${hora}:00`,
             disponible: 1,
             seleccionado: 0,
+            bloqueado: 0
           })
         })
       } catch (error) {
@@ -1053,6 +1032,10 @@ function CalendarPage() {
                       {timeOptions.map((time) => {
                         // Verificar si la hora está ocupada
                         const isBooked = time.disponible === 0 ? true : false;
+                        const isBlocked = time.bloqueado === 1 ? true : false;
+                        let mensaje = "";
+                        if(isBooked) mensaje = "Ocupado"
+                        if(isBlocked) mensaje = "Bloqueado"
                         const hora = new Date(time.fecha).toLocaleTimeString("es-MX", {
                           hour: "2-digit",
                           minute: "2-digit",
@@ -1062,21 +1045,21 @@ function CalendarPage() {
                         return (
                           <div
                             key={time.idFecha}
-                            className={`dropdown-item ${isBooked ? "disabled" : ""}`}
+                            className={`dropdown-item ${isBooked || isBlocked ? "disabled" : ""}`}
                             onClick={() => {
-                              if (!isBooked) {
+                              if (!isBooked && !isBlocked) {
                                 setSelectedTime(time)
                                 setShowTimeDropdown(false)
                               }
                             }}
                             style={{
-                              opacity: isBooked ? 0.5 : 1,
-                              cursor: isBooked ? "not-allowed" : "pointer",
-                              textDecoration: isBooked ? "line-through" : "none",
-                              color: isBooked ? "#999" : "inherit",
+                              opacity: isBooked || isBlocked ? 0.5 : 1,
+                              cursor: isBooked || isBlocked ? "not-allowed" : "pointer",
+                              textDecoration: isBooked || isBlocked ? "line-through" : "none",
+                              color: isBooked || isBlocked ? "#999" : "inherit",
                             }}
                           >
-                            {hora} {isBooked && "(Ocupado)"}
+                            {hora} {mensaje && `(${mensaje})`}
                           </div>
                         )
                       })}
