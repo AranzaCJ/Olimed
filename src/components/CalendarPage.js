@@ -33,15 +33,33 @@ function CalendarPage() {
     },
   ])
   const [blockedDates, setBlockedDates] = useState([
-    {
-      id: 1,
-      startDate: format(addDays(new Date(), 2), "yyyy-MM-dd"),
-      endDate: format(addDays(new Date(), 4), "yyyy-MM-dd"),
-      reason: "Vacaciones",
-      startTime: "09:00",
-      endTime: "18:00",
-    },
   ])
+
+  //carga de dias bloqueados desde el backend
+  useEffect(() => {
+    const cargarDiasBloqueados = async () => {
+      try {
+        const response = await fetch("http://127.0.0.1:8000/diasBloqueados");
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          alert("Ocurrio un error: " + errorData.detail)
+        } else {
+          const data = await response.json()
+          const count = 0
+          const diasBloqueados = data.map((d, i) => ({
+            id: i + 1,
+            startDate: d,
+            endDate: d,
+          }))
+          setBlockedDates(diasBloqueados)
+        }
+      } catch (error) {
+        alert("Ocurrio un error al cargar los dias bloqueados" + error)
+      }
+    }
+    cargarDiasBloqueados()
+  }, [showBlockDays])
 
   // Check if we should open new appointment modal from navigation
   useEffect(() => {
@@ -368,14 +386,49 @@ function CalendarPage() {
   }
 
   // Handle block days form submission
-  const handleBlockDaysSubmit = (e) => {
+  const handleBlockDaysSubmit = async (e) => {
     e.preventDefault()
-    const newBlockObj = {
-      id: blockedDates.length + 1,
-      ...blockDays,
-      reason: selectedReason,
+    console.log("Se ejecuto el codigo de bloquear dias")
+    const bloquearDias = async () => {
+      try {
+      let haveAppointments = false
+      appointments.forEach((cita) => {
+        // Convertimos las fechas a objetos Date
+        const citaDate = new Date(cita.date);
+        const startDate = new Date(blockDays.startDate);
+        const endDate = new Date(blockDays.endDate);
+
+        // Comparamos correctamente
+        if (citaDate >= startDate && citaDate <= endDate) {
+          haveAppointments = true;
+        }
+      });
+      if (haveAppointments) {
+        const confirmar = window.confirm("Los días a bloquear contienen citas ya definidas. Si bloqueas los días, las citas se cancelarán. ¿Deseas continuar?");
+        if (!confirmar) return; // Si el usuario cancela, detenemos aquí
+      }
+
+      let inicio = `${blockDays.startDate}T${blockDays.startTime}`
+      let fin = `${blockDays.endDate}T${blockDays.endTime}`
+      let bloqueado = 1
+      let url = `http://127.0.0.1:8000/fechasDisponibles?inicio=${inicio}&fin=${fin}&bloqueado=1`
+      const response = await fetch(url, {
+        method: "PATCH"
+      })
+      if (!response.ok) {
+        const errorData = await response.json()
+        alert("Error: " + errorData.detail)
+      } else {
+        const data = await response.json()
+        alert(data.message)
+      }
+    } catch (error) {
+      alert("Ocurrio un error al hacer la peticion" + error)
     }
-    setBlockedDates([...blockedDates, newBlockObj])
+    }
+    
+    await bloquearDias()
+
     setShowBlockDays(false)
     // Reset form
     setBlockDays({
@@ -444,7 +497,7 @@ function CalendarPage() {
     })
   }
 
-  // Handle unblock confirmation
+  // Handle unblock confirmation AQUI SE PROGRAMA EL DESBLOQUEO
   const handleUnblock = () => {
     if (blockToUnblock) {
       const updatedBlocks = blockedDates.filter((block) => block.id !== blockToUnblock.id)
@@ -1034,8 +1087,8 @@ function CalendarPage() {
                         const isBooked = time.disponible === 0 ? true : false;
                         const isBlocked = time.bloqueado === 1 ? true : false;
                         let mensaje = "";
-                        if(isBooked) mensaje = "Ocupado"
-                        if(isBlocked) mensaje = "Bloqueado"
+                        if (isBooked) mensaje = "Ocupado"
+                        if (isBlocked) mensaje = "Bloqueado"
                         const hora = new Date(time.fecha).toLocaleTimeString("es-MX", {
                           hour: "2-digit",
                           minute: "2-digit",
