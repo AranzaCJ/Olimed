@@ -1,12 +1,10 @@
 "use client"
-import { jwtDecode } from 'jwt-decode'
 import { useEffect } from "react"
 import { useState } from "react"
 //import { useState, useEffect } from "react"
 import "./CalendarPage.css"
 import { useNavigate, useLocation } from "react-router-dom"
 import { format, addMonths, subMonths, isSameDay, parseISO, addDays } from "date-fns"
-import { type } from '@testing-library/user-event/dist/type'
 
 //const [patientList, setPatientList] = useState([]);
 
@@ -14,7 +12,7 @@ function CalendarPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [patientList, setPatientList] = useState([]);
+  const [patientList, setPatientList] = useState([])
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [showNewAppointment, setShowNewAppointment] = useState(false)
   const [showBlockDays, setShowBlockDays] = useState(false)
@@ -47,24 +45,24 @@ function CalendarPage() {
   useEffect(() => {
     const fetchPacientes = async () => {
       try {
-        const response = await fetch("http://127.0.0.1:8000/pacientes");
-        if (!response.ok) throw new Error("Error al cargar pacientes");
+        const response = await fetch("http://127.0.0.1:8000/pacientes")
+        if (!response.ok) throw new Error("Error al cargar pacientes")
 
-        const data = await response.json();
+        const data = await response.json()
 
         // Mapeamos al formato { id, name }
-        const list = data.map(p => ({
+        const list = data.map((p) => ({
           id: p.idPaciente,
-          name: p.nombre
-        }));
+          name: p.nombre,
+        }))
 
-        setPatientList(list);
+        setPatientList(list)
       } catch (err) {
-        console.error(err);
-        setPatientList([]); // o algún valor por defecto
+        console.error(err)
+        setPatientList([]) // o algún valor por defecto
       }
-    };
-    fetchPacientes();
+    }
+    fetchPacientes()
 
     if (location.state?.openNewAppointment) {
       setShowNewAppointment(true)
@@ -87,9 +85,16 @@ function CalendarPage() {
           patient: patientName,
         })
       }
+
+      // Si un nombre de paciente fue pasado directamente, usarlo
+      if (location.state.patientName) {
+        setPatientSearchText(location.state.patientName)
+        setNewAppointment({
+          ...newAppointment,
+          patient: location.state.patientName,
+        })
+      }
     }
-
-
   }, [location.state])
 
   // Function to get patient name by ID
@@ -155,11 +160,10 @@ function CalendarPage() {
         const data = await res.json()
         setTimeOptions(data)
 
-        const disponible = data.find(h => h.disponible === 1)
+        const disponible = data.find((h) => h.disponible === 1)
         if (disponible) {
           setSelectedTime(disponible)
         }
-
       } catch (err) {
         console.error("Error al cargar horarios:", err)
       }
@@ -168,9 +172,7 @@ function CalendarPage() {
     if (newAppointment.date) {
       cargarHoras()
     }
-
-  }, [newAppointment.date])  // Se ejecuta cada vez que cambia la fecha seleccionada
-
+  }, [newAppointment.date]) // Se ejecuta cada vez que cambia la fecha seleccionada
 
   // Reason options
   const reasonOptions = ["Vacaciones", "Día festivo", "Capacitación", "Mantenimiento", "Otro"]
@@ -244,40 +246,28 @@ function CalendarPage() {
   }
 
   // Modificar la función para verificar si una hora ya está ocupada
-  const isTimeSlotBooked = (date, time) => {
-    const appointmentsForDate = getAppointmentsForDate(date)
+  const normalizeTime = (timeStr) => {
+    // Convertir formatos como "1:00 pm" a "1:00 pm" para comparación consistente
+    if (!timeStr) return ""
 
-    // Normalizar el formato de tiempo para comparación
-    const normalizeTime = (timeStr) => {
-      // Convertir formatos como "1:00 pm" a "1:00 pm" para comparación consistente
-      if (!timeStr) return ""
-
-      // Si el tiempo ya tiene am/pm, normalizarlo a minúsculas
-      if (timeStr.toLowerCase().includes("am") || timeStr.toLowerCase().includes("pm")) {
-        return timeStr.toLowerCase()
-      }
-
-      // Si el tiempo está en formato 24h (como "13:00"), convertirlo a formato 12h
-      const [hours, minutes] = timeStr.split(":")
-      const hour = Number.parseInt(hours, 10)
-
-      if (hour > 12) {
-        return `${hour - 12}:${minutes} pm`
-      } else if (hour === 12) {
-        return `12:${minutes} pm`
-      } else if (hour === 0) {
-        return `12:${minutes} am`
-      } else {
-        return `${hour}:${minutes} am`
-      }
+    // Si el tiempo ya tiene am/pm, normalizarlo a minúsculas
+    if (timeStr.toLowerCase().includes("am") || timeStr.toLowerCase().includes("pm")) {
+      return timeStr.toLowerCase()
     }
 
-    const normalizedTime = normalizeTime(time)
+    // Si el tiempo está en formato 24h (como "13:00"), convertirlo a formato 12h
+    const [hours, minutes] = timeStr.split(":")
+    const hour = Number.parseInt(hours, 10)
 
-    return appointmentsForDate.some((appointment) => {
-      const normalizedAppointmentTime = normalizeTime(appointment.time)
-      return normalizedAppointmentTime === normalizedTime
-    })
+    if (hour > 12) {
+      return `${hour - 12}:${minutes} pm`
+    } else if (hour === 12) {
+      return `12:${minutes} pm`
+    } else if (hour === 0) {
+      return `12:${minutes} am`
+    } else {
+      return `${hour}:${minutes} am`
+    }
   }
 
   // Get block for selected date
@@ -396,7 +386,7 @@ function CalendarPage() {
     const horarios = []
     let [h, m] = appointmentHours.startTime.split(":").map(Number)
     const [endH, endM] = appointmentHours.endTime.split(":").map(Number)
-    const duracionCita = parseInt(appointmentHours.duration)
+    const duracionCita = Number.parseInt(appointmentHours.duration)
     const fecha = appointmentHours.date
 
     while (h < endH || (h === endH && m < endM)) {
@@ -425,8 +415,8 @@ function CalendarPage() {
             fecha: `${fecha}T${hora}:00`,
             disponible: 1,
             seleccionado: 0,
-            bloqueado: 0
-          })
+            bloqueado: 0,
+          }),
         })
       } catch (error) {
         console.log("Error al enviar" + hora, error)
@@ -536,7 +526,7 @@ function CalendarPage() {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
       <circle cx="12" cy="12" r="3" />
     </svg>
   )
@@ -853,8 +843,9 @@ function CalendarPage() {
                 return (
                   <div
                     key={day.toString()}
-                    className={`calendar-day ${isToday ? "today" : ""} ${isSelected ? "selected" : ""
-                      } ${hasAppt ? "has-appointment" : ""} ${isDayBlocked ? "blocked" : ""}`}
+                    className={`calendar-day ${isToday ? "today" : ""} ${
+                      isSelected ? "selected" : ""
+                    } ${hasAppt ? "has-appointment" : ""} ${isDayBlocked ? "blocked" : ""}`}
                     onClick={() => handleDateClick(day)}
                   >
                     {dayNumber}
@@ -1013,15 +1004,19 @@ function CalendarPage() {
               <div className="form-group">
                 <label>Hora</label>
                 <div className="input-with-icon">
-                  <input type="text" value={
-                    selectedTime && selectedTime.fecha
-                      ? new Date(selectedTime.fecha).toLocaleTimeString("es-MX", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                      : ""
-                  }
-                    readOnly onClick={toggleTimeDropdown} />
+                  <input
+                    type="text"
+                    value={
+                      selectedTime && selectedTime.fecha
+                        ? new Date(selectedTime.fecha).toLocaleTimeString("es-MX", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : ""
+                    }
+                    readOnly
+                    onClick={toggleTimeDropdown}
+                  />
                   <div className="input-icons">
                     <div onClick={toggleTimeDropdown} style={{ cursor: "pointer" }}>
                       <ChevronDownIcon />
@@ -1031,11 +1026,11 @@ function CalendarPage() {
                     <div className="dropdown-menu">
                       {timeOptions.map((time) => {
                         // Verificar si la hora está ocupada
-                        const isBooked = time.disponible === 0 ? true : false;
-                        const isBlocked = time.bloqueado === 1 ? true : false;
-                        let mensaje = "";
-                        if(isBooked) mensaje = "Ocupado"
-                        if(isBlocked) mensaje = "Bloqueado"
+                        const isBooked = time.disponible === 0 ? true : false
+                        const isBlocked = time.bloqueado === 1 ? true : false
+                        let mensaje = ""
+                        if (isBooked) mensaje = "Ocupado"
+                        if (isBlocked) mensaje = "Bloqueado"
                         const hora = new Date(time.fecha).toLocaleTimeString("es-MX", {
                           hour: "2-digit",
                           minute: "2-digit",
