@@ -35,6 +35,7 @@ function SettingsPage() {
   })*/
 
   const [patient, setPatient] = useState(null)
+  
 
   // Efecto para traer el paciente una vez al montar o al cambiar patientId
   useEffect(() => {
@@ -87,46 +88,145 @@ function SettingsPage() {
   const handleSubmit = e => {
   e.preventDefault();
 
-  // Construye un mensaje con los datos
-  const mensaje = `
-Datos Personales:
-  Nombre: ${personalData.nombre}
-  Edad: ${personalData.edad}
+    // Construye un mensaje con los datos
+    const mensaje = `
+    Datos Personales:
+    Nombre: ${personalData.nombre}
+    Edad: ${personalData.edad}
 
-Información de Contacto:
-  Dirección: ${contactData.direccion}
-  Correo: ${contactData.correo}
-  Teléfono 1: ${contactData.telefono1}
-  Teléfono 2: ${contactData.telefono2}
+    Información de Contacto:
+      Dirección: ${contactData.direccion}
+      Correo: ${contactData.correo}
+      Teléfono 1: ${contactData.telefono1}
+      Teléfono 2: ${contactData.telefono2}
 
-Información Médica:
-  Alergias: ${medicalData.alergias}
-  Tipo de Sangre: ${medicalData.tipoSangre}
-  `;
+    Información Médica:
+      Alergias: ${medicalData.alergias}
+      Tipo de Sangre: ${medicalData.tipoSangre}
+      `;
 
-  // Muestra la alerta
-  alert(mensaje);
+      // Muestra la alerta
+      alert(mensaje);
 
-  // Aquí podrías seguir enviando al servidor...
-};
+    // Aquí podrías seguir enviando al servidor...
+  };
   // Toggle dropdown visibility
   const toggleDropdown = () => {
     setShowDropdown(!showDropdown)
   }
+  
+  const handleGuardar = async () => {
+    try {
+      // 1) PUT datos generales
+      const bodyPaciente = {
+        nombre: personalData.nombre,
+        fecha_nacimiento: patient.fecha_nacimiento,
+        tipo_sangre: medicalData.tipoSangre,
+        direccion: contactData.direccion,
+      }
+      let res = await fetch(
+        `http://127.0.0.1:8000/paciente/${patientId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(bodyPaciente),
+        }
+      )
+      if (!res.ok) throw new Error("Error al actualizar paciente")
+
+      // 2) PUT teléfono 1
+      const tel1 = contactData.telefonos[0]
+      if (tel1.idTelefono) {
+        res = await fetch(
+          `http://127.0.0.1:8000/paciente/${patientId}/telefono/${tel1.idTelefono}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ telefono: tel1.telefono, tipo: tel1.tipo }),
+          }
+        )
+        if (!res.ok) throw new Error("Error al actualizar teléfono 1")
+      }
+
+      // 3) PUT teléfono 2
+      const tel2 = contactData.telefonos[1]
+      if (tel2.idTelefono) {
+        res = await fetch(
+          `http://127.0.0.1:8000/paciente/${patientId}/telefono/${tel2.idTelefono}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ telefono: tel2.telefono, tipo: tel2.tipo }),
+          }
+        )
+        if (!res.ok) throw new Error("Error al actualizar teléfono 2")
+      }
+
+      alert("Datos guardados correctamente")
+    } catch (err) {
+      console.error(err)
+      alert("Hubo un error al guardar: " + err.message)
+    }
+  }
+  
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+
+    // Validación de contraseña
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      alert(
+        "La contraseña debe tener al menos 8 caracteres, incluyendo una mayúscula, una minúscula y un número."
+      );
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      alert("Las contraseñas no coinciden.");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8000/auth/change-password/paciente",
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            current_password: currentPassword,
+            new_password: newPassword,
+          }),
+        }
+      );
+
+      console.log("Status:", response.status);
+      const payload = await response.json().catch(() => null);
+      console.log("Payload:", payload);
+
+      if (response.ok) {
+        alert("Contraseña cambiada exitosamente");
+      } else {
+        // Si el servidor devuelve { detail: "..." }
+        alert(payload?.detail || "La contraseña actual ingresada es incorrecta");
+      }
+    } catch (error) {
+      console.error("Fetch falla:", error);
+      alert("Error al procesar la solicitud. Revisa la consola.");
+    } finally {
+      // Limpia campos y regresa a sección de password
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setActiveOption("password");
+      navigate("/settings");
+    }
+  };
 
   // Handle logout
   const handleLogout = () => {
     navigate("/login")
-  }
-
-  // Handle password change
-  const handlePasswordChange = (e) => {
-    e.preventDefault()
-    // Here you would implement the actual password change logic
-    alert("Contraseña cambiada exitosamente")
-    setCurrentPassword("")
-    setNewPassword("")
-    setConfirmPassword("")
   }
 
   
@@ -368,7 +468,7 @@ Información Médica:
                   <h2>Información de Contacto</h2>
                   <div className="form-group">
                     <label>Dirección:</label>
-                    <input type="text" value={contactData.direccion} />
+                    <input type="text" value={contactData.direccion}/>
                   </div>
                   <div className="info-field">
                     <label>Correo electrónico:</label>
@@ -385,7 +485,7 @@ Información Médica:
                     </div>
                   </div>
                   <div className="form-actions">
-                    <button type="submit" className="submit-btn">Guardar</button>
+                    <button type="submit" className="submit-btn" onClick={handleGuardar}>Guardar</button>
                   </div>
                 </div>
               )}
@@ -413,18 +513,33 @@ Información Médica:
               {activeOption === "password" && (
                 <div className="settings-form">
                   <h2>Cambiar contraseña</h2>
-                  <form>
+                  <form onSubmit={handlePasswordChange}>
                     <div className="form-group">
                       <label>Contraseña actual:</label>
-                      <input type="password" />
+                      <input
+                        type="password"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        required
+                      />
                     </div>
                     <div className="form-group">
                       <label>Nueva contraseña:</label>
-                      <input type="password" />
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        required
+                      />
                     </div>
                     <div className="form-group">
                       <label>Confirmar contraseña:</label>
-                      <input type="password" />
+                      <input
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                      />
                     </div>
                     <div className="form-actions">
                       <button type="submit" className="submit-btn">Guardar</button>
