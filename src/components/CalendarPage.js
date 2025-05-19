@@ -178,9 +178,13 @@ function CalendarPage() {
         const data = await res.json()
         setTimeOptions(data)
 
-        const disponible = data.find((h) => h.disponible === 1)
+        const disponible = data.find(h => h.disponible === 1 && h.bloqueado === 0)
         if (disponible) {
+          console.log("Imprimiendo hora disponible")
+          console.log(disponible) 
           setSelectedTime(disponible)
+        }else{
+          setSelectedTime(null)
         }
       } catch (err) {
         console.error("Error al cargar horarios:", err)
@@ -190,7 +194,7 @@ function CalendarPage() {
     if (newAppointment.date) {
       cargarHoras()
     }
-  }, [newAppointment.date]) // Se ejecuta cada vez que cambia la fecha seleccionada
+  }, [newAppointment.date, showNewAppointment]) // Se ejecuta cada vez que cambia la fecha seleccionada
 
   // Reason options
   const reasonOptions = ["Vacaciones", "Día festivo", "Capacitación", "Mantenimiento", "Otro"]
