@@ -27,14 +27,6 @@ function CalendarPage() {
     },
   ])
   const [blockedDates, setBlockedDates] = useState([
-    {
-      id: 1,
-      startDate: format(addDays(new Date(), 2), "yyyy-MM-dd"),
-      endDate: format(addDays(new Date(), 4), "yyyy-MM-dd"),
-      reason: "Vacaciones",
-      startTime: "09:00",
-      endTime: "18:00",
-    },
   ])
 
 //carga de dias bloqueados desde el backend
@@ -171,6 +163,8 @@ function CalendarPage() {
           console.log("imprimiendo la hora disponible");
           console.log(disponible);
           setSelectedTime(disponible)
+        }else{
+          setSelectedTime(null)
         }
 
       } catch (err) {
@@ -270,7 +264,7 @@ function CalendarPage() {
   }
 
   // Agregar una nueva función para verificar las citas y los horarios:
-  const logAppointmentsAndTimes = (date) => {
+  /*const logAppointmentsAndTimes = (date) => {
     console.log("Fecha seleccionada:", format(date, "yyyy-MM-dd"))
     const appts = getAppointmentsForDate(date)
     console.log("Citas para esta fecha:", appts)
@@ -279,14 +273,14 @@ function CalendarPage() {
       const isBooked = isTimeSlotBooked(date, time)
       console.log(`Hora ${time}: ${isBooked ? "OCUPADA" : "disponible"}`)
     })
-  }
+  }*/
 
   // Handle date selection
   const handleDateClick = (date) => {
     setSelectedDate(date)
 
     // Depurar las citas y horarios
-    logAppointmentsAndTimes(date)
+    //logAppointmentsAndTimes(date)
 
     // Check if date is blocked
     const block = getBlockForDate(date)

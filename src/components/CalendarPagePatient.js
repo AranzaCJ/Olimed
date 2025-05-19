@@ -119,6 +119,8 @@ function CalendarPage() {
           console.log("imprimiendo la hora disponible");
           console.log(disponible);
           setSelectedTime(disponible)
+        }else{
+          setSelectedTime(null)
         }
 
       } catch (err) {
@@ -249,7 +251,7 @@ function CalendarPage() {
   }
 
   // Añadir esta función para depuración
-  const logAppointmentsAndTimes = (date) => {
+  /*const logAppointmentsAndTimes = (date) => {
     console.log("Fecha seleccionada:", format(date, "yyyy-MM-dd"))
     const appts = getAppointmentsForDate(date)
     console.log("Citas para esta fecha:", appts)
@@ -258,14 +260,14 @@ function CalendarPage() {
       const isBooked = isTimeSlotBooked(date, time)
       console.log(`Hora ${time}: ${isBooked ? "OCUPADA" : "disponible"}`)
     })
-  }
+  }*/
 
   // Handle date selection
   const handleDateClick = (date) => {
     setSelectedDate(date)
 
     // Depurar las citas y horarios
-    logAppointmentsAndTimes(date)
+    //logAppointmentsAndTimes(date)
 
     // Check if date is blocked
     const block = getBlockForDate(date)
