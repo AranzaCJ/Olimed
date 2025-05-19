@@ -398,7 +398,7 @@ function CalendarPage() {
         const startDate = new Date(blockDays.startDate);
         const endDate = new Date(blockDays.endDate);
 
-        // Comparamos correctamente
+        // Comparamos
         if (citaDate >= startDate && citaDate <= endDate) {
           haveAppointments = true;
         }
@@ -440,7 +440,7 @@ function CalendarPage() {
     })
   }
 
-  //Modificaremos
+  //Modificado para crear los horarios disponibles
   // Add this after the other handler functions esto sirve para generar citas
   const handleAppointmentHoursSubmit = async (e) => {
     e.preventDefault()
@@ -498,10 +498,29 @@ function CalendarPage() {
   }
 
   // Handle unblock confirmation AQUI SE PROGRAMA EL DESBLOQUEO
-  const handleUnblock = () => {
+  const handleUnblock = async () => {
     if (blockToUnblock) {
       const updatedBlocks = blockedDates.filter((block) => block.id !== blockToUnblock.id)
       setBlockedDates(updatedBlocks)
+      const inicio = `${blockToUnblock.startDate}T00:00:00`
+      const fin = `${blockToUnblock.endDate}T23:59:59`
+      try{
+      let url = `http://127.0.0.1:8000/fechasDisponibles?inicio=${inicio}&fin=${fin}&bloqueado=0`
+      const response = await fetch(url, {
+        method: "PATCH"
+      })
+      if (!response.ok) {
+        const errorData = await response.json()
+        alert("Error: " + errorData.detail)
+      } else {
+        const data = await response.json()
+        alert(data.message)
+      }
+    } catch (error) {
+      alert("Ocurrio un error al hacer la peticion" + error)
+    }
+
+      //esto se programa despues
       setShowUnblockModal(false)
       setBlockToUnblock(null)
     }
