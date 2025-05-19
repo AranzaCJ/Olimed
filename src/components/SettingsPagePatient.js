@@ -6,167 +6,184 @@ import { useNavigate } from "react-router-dom"
 import "./SettingsPage.css"
 
 function SettingsPage() {
-  const token = localStorage.getItem("token")
-  let patientId = jwtDecode(token).sub
-  const navigate = useNavigate()
-  //const [activeOption, setActiveOption] = useState("password")
-  const [showDropdown, setShowDropdown] = useState(false)
-  const [currentPassword, setCurrentPassword] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
+  const token = localStorage.getItem("token");
+  let patientId = jwtDecode(token).sub;
+  const navigate = useNavigate();
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [activeOption, setActiveOption] = useState("datosPersonales");
+  const [patient, setPatient] = useState(null);
 
-  const [activeOption, setActiveOption] = useState("datosPersonales")
-/*
-  const [personalData, setPersonalData] = useState({
-    nombre: "------------",
-    edad: "..."
-  })
+  // Estados para formularios editables
+  const [contactData, setContactData] = useState({ direccion: '', correo: '', telefono1: '', telefono2: '' });
+  const [medicalData, setMedicalData] = useState({ alergias: '', tipoSangre: '' });
 
-  const [contactData, setContactData] = useState({
-    direccion: "....",
-    correo: "-----",
-    telefono1: "222",
-    telefono2: "2222"
-  })
-
-  const [medicalData, setMedicalData] = useState({
-    alergias: "22222",
-    tipoSangre: "2222"
-  })*/
-
-  const [patient, setPatient] = useState(null)
-  
-
-  // Efecto para traer el paciente una vez al montar o al cambiar patientId
+  // Carga inicial de paciente
   useEffect(() => {
-    if (!patientId) return
-
+    if (!patientId) return;
     const fetchPaciente = async () => {
       try {
-        const res = await fetch(`http://127.0.0.1:8000/paciente/${patientId}`)
-        if (!res.ok) throw new Error("Error al cargar paciente")
-        const data = await res.json()
-        setPatient(data)
+        const res = await fetch(`http://127.0.0.1:8000/paciente/${patientId}`);
+        if (!res.ok) throw new Error("Error al cargar paciente");
+        const data = await res.json();
+        setPatient(data);
+        // Inicializa formularios
+        const t = data.Telefonos || [];
+        setContactData({
+          direccion: data.direccion || '',
+          correo: data.correo || '',
+          telefono1: t[0]?.telefono || '',
+          telefono2: t[1]?.telefono || ''
+        });
+        setMedicalData({
+          alergias: (data.Alergias || []).map(a => a.nombre).join(", "),
+          tipoSangre: data.tipo_sangre || ''
+        });
       } catch (err) {
-        console.error("fetchPaciente:", err)
-        setPatient(null)
+        console.error(err);
+        setPatient(null);
       }
-    }
+    };
+    fetchPaciente();
+  }, [patientId]);
 
-    fetchPaciente()
-  }, [patientId])
-
-  // Derivados de patient
-  const personalData = useMemo(() => {
-    if (!patient) return { nombre: "–", edad: "" }
-    const edad = patient.fecha_nacimiento
-      ? differenceInYears(new Date(), parseISO(patient.fecha_nacimiento))
-      : ""
-    return { nombre: patient.nombre, edad }
-  }, [patient])
- 
-
-  const contactData = useMemo(() => {
-    if (!patient) return { direccion: "", correo: "", telefono1: "", telefono2: "" }
-    const t = patient.Telefonos || []
-    return {
-      direccion: patient.direccion || "",
-      correo: patient.correo || "",
-      telefono1: t[0]?.telefono || "",
-      telefono2: t[1]?.telefono || "",
-    }
-  }, [patient])
-
-  const medicalData = useMemo(() => {
-    if (!patient) return { alergias: "", tipoSangre: "" }
-    return {
-      alergias: (patient.Alergias || []).map(a => a.nombre).join(", "),
-      tipoSangre: patient.tipo_sangre || "",
-    }
-  }, [patient])
-
-  const handleSubmit = e => {
-  e.preventDefault();
-
-    // Construye un mensaje con los datos
-    const mensaje = `
-    Datos Personales:
-    Nombre: ${personalData.nombre}
-    Edad: ${personalData.edad}
-
-    Información de Contacto:
-      Dirección: ${contactData.direccion}
-      Correo: ${contactData.correo}
-      Teléfono 1: ${contactData.telefono1}
-      Teléfono 2: ${contactData.telefono2}
-
-    Información Médica:
-      Alergias: ${medicalData.alergias}
-      Tipo de Sangre: ${medicalData.tipoSangre}
-      `;
-
-      // Muestra la alerta
-      alert(mensaje);
-
-    // Aquí podrías seguir enviando al servidor...
+  // Handlers de cambio
+  const handleContactChange = e => {
+    const { name, value } = e.target;
+    setContactData(prev => ({ ...prev, [name]: value }));
   };
+  const handleMedicalChange = e => {
+    const { name, value } = e.target;
+    setMedicalData(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Submit Contact
+  const handleContactSubmit = async e => {
+    e.preventDefault();
+    try {
+      // Actualizar dirección y correo (correo no editable)
+      await fetch(`http://127.0.0.1:8000/paciente/${patientId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ direccion: contactData.direccion })
+      });
+      // Telefonos
+      const telArr = patient.Telefonos || [];
+      // Teléfono 1
+      if (contactData.telefono1) {
+        if (telArr[0]) {
+          await fetch(`http://127.0.0.1:8000/paciente/${patientId}/telefono/${telArr[0].id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ telefono: contactData.telefono1 })
+          });
+        } else {
+          await fetch(`http://127.0.0.1:8000/paciente/${patientId}/telefono`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ telefono: contactData.telefono1, tipo: "X" })
+          });
+        }
+      }
+      // Teléfono 2
+      if (contactData.telefono2) {
+        if (telArr[1]) {
+          await fetch(`http://127.0.0.1:8000/paciente/${patientId}/telefono/${telArr[1].id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ telefono: contactData.telefono2 })
+          });
+        } else {
+          await fetch(`http://127.0.0.1:8000/paciente/${patientId}/telefono`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ telefono: contactData.telefono2, tipo: "X" })
+          });
+        }
+      }
+      // Refrescar
+      const updated = await fetch(`http://127.0.0.1:8000/paciente/${patientId}`);
+      setPatient(await updated.json());
+      alert('Contacto actualizado');
+    } catch (err) {
+      console.error(err);
+      alert('Error al guardar contacto');
+    }
+  };
+
+  // Submit Medical
+  const handleMedicalSubmit = async e => {
+    e.preventDefault();
+    try {
+      // Tipo de sangre
+      await fetch(`http://127.0.0.1:8000/paciente/${patientId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo_sangre: medicalData.tipoSangre })
+      });
+      // Alergias: split por comas y procesa solo primera para este ejemplo
+      const alergArr = patient.Alergias || [];
+      const nombre = medicalData.alergias;
+      if (nombre) {
+        if (alergArr[0]) {
+          await fetch(`http://127.0.0.1:8000/paciente/${patientId}/alergia/${alergArr[0].id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre })
+          });
+        } else {
+          await fetch(`http://127.0.0.1:8000/paciente/${patientId}/alergia`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre })
+          });
+        }
+      }
+      const updated = await fetch(`http://127.0.0.1:8000/paciente/${patientId}`);
+      setPatient(await updated.json());
+      alert('Datos médicos actualizados');
+    } catch (err) {
+      console.error(err);
+      alert('Error al guardar datos médicos');
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    const token = localStorage.getItem("token");
+    const patientId = jwtDecode(token).sub;
+    //const navigate = useNavigate();
+    const ok = window.confirm("¿Estás seguro de querer eliminar tu cuenta?");
+    if (!ok) return;
+
+    try {
+      const res = await fetch(
+        `http://127.0.0.1:8000/paciente/${patientId}`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!res.ok) throw new Error("Error al eliminar cuenta");
+
+      // Limpia el estado de sesión y redirige al login
+      localStorage.clear();
+      navigate("/login", { replace: true });
+    } catch (err) {
+      console.error(err);
+      alert("No se pudo eliminar la cuenta. Intenta de nuevo más tarde.");
+    }
+  }
+
+  
   // Toggle dropdown visibility
   const toggleDropdown = () => {
     setShowDropdown(!showDropdown)
-  }
-  
-  const handleGuardar = async () => {
-    try {
-      // 1) PUT datos generales
-      const bodyPaciente = {
-        nombre: personalData.nombre,
-        fecha_nacimiento: patient.fecha_nacimiento,
-        tipo_sangre: medicalData.tipoSangre,
-        direccion: contactData.direccion,
-      }
-      let res = await fetch(
-        `http://127.0.0.1:8000/paciente/${patientId}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(bodyPaciente),
-        }
-      )
-      if (!res.ok) throw new Error("Error al actualizar paciente")
-
-      // 2) PUT teléfono 1
-      const tel1 = contactData.telefonos[0]
-      if (tel1.idTelefono) {
-        res = await fetch(
-          `http://127.0.0.1:8000/paciente/${patientId}/telefono/${tel1.idTelefono}`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ telefono: tel1.telefono, tipo: tel1.tipo }),
-          }
-        )
-        if (!res.ok) throw new Error("Error al actualizar teléfono 1")
-      }
-
-      // 3) PUT teléfono 2
-      const tel2 = contactData.telefonos[1]
-      if (tel2.idTelefono) {
-        res = await fetch(
-          `http://127.0.0.1:8000/paciente/${patientId}/telefono/${tel2.idTelefono}`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ telefono: tel2.telefono, tipo: tel2.tipo }),
-          }
-        )
-        if (!res.ok) throw new Error("Error al actualizar teléfono 2")
-      }
-
-      alert("Datos guardados correctamente")
-    } catch (err) {
-      console.error(err)
-      alert("Hubo un error al guardar: " + err.message)
-    }
   }
   
   const handlePasswordChange = async (e) => {
@@ -372,7 +389,7 @@ function SettingsPage() {
               <button onClick={handleLogout} className="dropdown-item">
                 Cerrar sesión
               </button>
-              <button className="dropdown-item">Eliminar cuenta</button>
+              <button className="dropdown-item" onClick={handleDeleteAccount}>Eliminar cuenta</button>
               <div className="dropdown-divider"></div>
             </div>
           )}
@@ -443,72 +460,92 @@ function SettingsPage() {
             <div className="settings-panel">
               {activeOption === "datosPersonales" && (
                 <div className="settings-form">
-                  <form onSubmit={handleSubmit}>
-                    {/* ... tus campos ... */}
-                    <div className="form-actions">
-                      <button type="submit" className="submit-btn">
-                        Guardar Todos
-                      </button>
-                    </div>
-                  </form>
                   <h2>Datos personales</h2>
                   <div className="form-group">
                     <label>Nombre:</label>
-                    <input type="text" value={personalData.nombre} />
+                    <input type="text" value={patient?.nombre || "–"} disabled />
                   </div>
                   <div className="form-group">
                     <label>Edad:</label>
-                    <input type="text" value={personalData.edad} />
+                    <input
+                      type="text"
+                      value={patient?.fecha_nacimiento ? differenceInYears(new Date(), parseISO(patient.fecha_nacimiento)) : ""}
+                      disabled
+                    />
                   </div>
                 </div>
               )}
 
               {activeOption === "infoContacto" && (
-                <div className="settings-form">
-                  <h2>Información de Contacto</h2>
-                  <div className="form-group">
-                    <label>Dirección:</label>
-                    <input type="text" value={contactData.direccion}/>
+              <form className="settings-form" onSubmit={handleContactSubmit}>
+                <h2>Información de Contacto</h2>
+                <div className="form-group">
+                  <label>Dirección:</label>
+                  <input
+                    type="text"
+                    name="direccion"
+                    value={contactData.direccion}
+                    onChange={handleContactChange}
+                  />
+                </div>
+                <div className="info-field">
+                  <label>Correo electrónico:</label>
+                  <input type="text" value={contactData.correo} disabled />
+                </div>
+                <div className="info-row">
+                  <div className="info-field">
+                    <label>Teléfono 1:</label>
+                    <input
+                      type="text"
+                      name="telefono1"
+                      value={contactData.telefono1}
+                      onChange={handleContactChange}
+                    />
                   </div>
                   <div className="info-field">
-                    <label>Correo electrónico:</label>
-                    <input type="text" value={contactData.correo} />
-                  </div>
-                  <div className="info-row">
-                    <div className="info-field">
-                      <label>Teléfono 1:</label>
-                      <input type="text" value={contactData.telefono1} />
-                    </div>
-                    <div className="info-field">
-                      <label>Teléfono 2:</label>
-                      <input type="text" value={contactData.telefono2} />
-                    </div>
-                  </div>
-                  <div className="form-actions">
-                    <button type="submit" className="submit-btn" onClick={handleGuardar}>Guardar</button>
+                    <label>Teléfono 2:</label>
+                    <input
+                      type="text"
+                      name="telefono2"
+                      value={contactData.telefono2}
+                      onChange={handleContactChange}
+                    />
                   </div>
                 </div>
-              )}
+                <div className="form-actions">
+                  <button type="submit" className="submit-btn">Guardar</button>
+                </div>
+              </form>
+            )}
 
-              {activeOption === "infoMedica" && (
-                <div className="settings-form">
-                  <h2>Información médica</h2>
-                  <div className="form-group">
-                    <label>Administra tus datos medicos. Estos datos son privados y no se mostraran a otros usuarios. Consulta la politica de privacidad</label>
-                  </div>
-                  <div className="info-field">
-                    <label>Alergias:</label>
-                    <textarea value={medicalData.alergias}  />
-                  </div>
-                  <div className="info-field">
-                    <label>Tipo de sangre:</label>
-                    <input type="text" value={medicalData.tipoSangre} />
-                  </div>
-                  <div className="form-actions">
-                    <button type="submit" className="submit-btn">Guardar</button>
-                  </div>
+            {activeOption === "infoMedica" && (
+              <form className="settings-form" onSubmit={handleMedicalSubmit}>
+                <h2>Información médica</h2>
+                <div className="form-group">
+                  <label>Administra tus datos medicos. Estos datos son privados...</label>
                 </div>
-              )}
+                <div className="info-field">
+                  <label>Alergias:</label>
+                  <textarea
+                    name="alergias"
+                    value={medicalData.alergias}
+                    onChange={handleMedicalChange}
+                  />
+                </div>
+                <div className="info-field">
+                  <label>Tipo de sangre:</label>
+                  <input
+                    type="text"
+                    name="tipoSangre"
+                    value={medicalData.tipoSangre}
+                    onChange={handleMedicalChange}
+                  />
+                </div>
+                <div className="form-actions">
+                  <button type="submit" className="submit-btn">Guardar</button>
+                </div>
+              </form>
+            )}
 
               {activeOption === "password" && (
                 <div className="settings-form">

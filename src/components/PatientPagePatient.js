@@ -1,14 +1,21 @@
 "use client"
-
-import { useState } from "react"
+import { jwtDecode } from "jwt-decode"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import "./PatientPage.css"
 import { format } from "date-fns"
+import { fetchPatientData, updatePatientData } from "../utils/api"
 
 function PatientPage() {
   const navigate = useNavigate()
   const [expandedAppointment, setExpandedAppointment] = useState(null)
   const [selectedAppointment, setSelectedAppointment] = useState(null)
+  const [editablePatient, setEditablePatient] = useState(null)
+  const [isEditing, setIsEditing] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState(null)
+  const [successMessage, setSuccessMessage] = useState(null)
 
   // Sample appointments data
   const appointments = [
@@ -34,6 +41,84 @@ function PatientPage() {
     },
   ]
 
+  // Fetch patient data on component mount
+  useEffect(() => {
+    fetchPatientDataFromAPI()
+  }, [])
+
+  // Fetch patient data from API
+  const fetchPatientDataFromAPI = async () => {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      // In a real app, you would get the patient ID from authentication
+      const patientId = 1 // Mock patient ID
+      const data = await fetchPatientData(patientId)
+
+      // Create patient object from API data
+      const patient = {
+        id: data.idPaciente,
+        name: data.nombre,
+        age: calculateAge(data.fecha_nacimiento), // Calculate age from birth date
+        address: {
+          full: data.direccion,
+        },
+        contact: {
+          email: data.correo,
+          phone1: "", // Not in the API schema
+          phone2: "", // Not in the API schema
+        },
+        medicalInfo: {
+          bloodType: data.tipo_sangre,
+          birthDate: data.fecha_nacimiento,
+        },
+      }
+
+      setEditablePatient(patient)
+    } catch (err) {
+      setError("Error al cargar los datos del paciente. Por favor, inténtelo de nuevo.")
+      console.error("Error fetching patient data:", err)
+
+      // Set default data in case of error
+      setEditablePatient({
+        id: 1,
+        name: "Your Name",
+        age: 30,
+        address: {
+          full: "Your Address",
+        },
+        contact: {
+          email: "your.email@example.com",
+          phone1: "",
+          phone2: "",
+        },
+        medicalInfo: {
+          bloodType: "",
+          birthDate: "",
+        },
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Helper function to calculate age from birth date
+  const calculateAge = (birthDate) => {
+    if (!birthDate) return 0
+
+    const today = new Date()
+    const birth = new Date(birthDate)
+    let age = today.getFullYear() - birth.getFullYear()
+    const monthDiff = today.getMonth() - birth.getMonth()
+
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--
+    }
+
+    return age
+  }
+
   // Toggle appointment expansion
   const toggleAppointment = (appointmentId) => {
     if (expandedAppointment === appointmentId) {
@@ -45,7 +130,6 @@ function PatientPage() {
       setSelectedAppointment(appointment)
     }
   }
-
 
   // Navigate to calendar with new appointment
   const navigateToNewAppointment = () => {
@@ -66,9 +150,106 @@ function PatientPage() {
     setShowDropdown(!showDropdown)
   }
 
+  const handleDeleteAccount = async () => {
+    const token = localStorage.getItem("token")
+    const patientId = jwtDecode(token).sub
+    //const navigate = useNavigate();
+    const ok = window.confirm("¿Estás seguro de querer eliminar tu cuenta?")
+    if (!ok) return
+
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/paciente/${patientId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!res.ok) throw new Error("Error al eliminar cuenta")
+
+      // Limpia el estado de sesión y redirige al login
+      localStorage.clear()
+      navigate("/login", { replace: true })
+    } catch (err) {
+      console.error(err)
+      alert("No se pudo eliminar la cuenta. Intenta de nuevo más tarde.")
+    }
+  }
+
   // Handle logout
   const handleLogout = () => {
     navigate("/login")
+  }
+
+  // Handle input changes for editable fields
+  const handleInputChange = (e, section, field) => {
+    if (!editablePatient) return
+
+    setEditablePatient((prev) => {
+      if (!prev) return prev
+
+      if (section) {
+        return {
+          ...prev,
+          [section]: {
+            ...prev[section],
+            [field]: e.target.value,
+          },
+        }
+      } else {
+        return {
+          ...prev,
+          [field]: e.target.value,
+        }
+      }
+    })
+  }
+
+  // Handle address change
+  const handleAddressChange = (e) => {
+    if (!editablePatient) return
+
+    setEditablePatient((prev) => ({
+      ...prev,
+      address: {
+        ...prev.address,
+        full: e.target.value,
+      },
+    }))
+  }
+
+  // Save patient information
+  const savePatientInfo = async () => {
+    if (!editablePatient) return
+
+    setIsSaving(true)
+    setError(null)
+    setSuccessMessage(null)
+
+    try {
+      // Prepare data for API
+      const apiData = {
+        idPaciente: editablePatient.id,
+        nombre: editablePatient.name,
+        correo: editablePatient.contact.email,
+        direccion: editablePatient.address.full,
+        tipo_sangre: editablePatient.medicalInfo?.bloodType || "",
+        fecha_nacimiento: editablePatient.medicalInfo?.birthDate || null,
+        // Note: We don't update the password here
+      }
+
+      // Send data to API
+      await updatePatientData(editablePatient.id, apiData)
+
+      setSuccessMessage("Información guardada correctamente")
+      setTimeout(() => setSuccessMessage(null), 3000) // Clear success message after 3 seconds
+    } catch (err) {
+      setError("Error al guardar los datos. Por favor, inténtelo de nuevo.")
+      console.error("Error saving patient data:", err)
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   // Icons
@@ -212,7 +393,7 @@ function PatientPage() {
       <header className="home-header">
         <div className="logo-container">
           <div className="logo-circle">
-          <img src="/logo.jpg" alt="Logo"/>
+            <img src="/logo.jpg" alt="Logo" />
           </div>
         </div>
         <div className="banner">
@@ -227,7 +408,9 @@ function PatientPage() {
               <button onClick={handleLogout} className="dropdown-item">
                 Cerrar sesión
               </button>
-              <button className="dropdown-item">Eliminar cuenta</button>
+              <button className="dropdown-item" onClick={handleDeleteAccount}>
+                Eliminar cuenta
+              </button>
               <div className="dropdown-divider"></div>
             </div>
           )}
@@ -255,44 +438,39 @@ function PatientPage() {
 
         {/* Main Content */}
         <main className="main-content">
-        <div className="appointments-list">
-          {appointments.map((appointment) => (
-            <div key={appointment.id} className="appointment-item">
-              <div
-                className="appointment-header"
-                onClick={() => toggleAppointment(appointment.id)}
-              >
-                <span className="appointment-date">{appointment.date}</span>
-                <button className="toggle-button">
-                  {expandedAppointment === appointment.id
-                    ? <ChevronUpIcon />
-                    : <ChevronDownIcon />}
-                </button>
-              </div>
-
-              {expandedAppointment === appointment.id && selectedAppointment && (
-                <div className="appointment-details">
-                  <div className="medical-section">
-                    <h3>Síntomas:</h3>
-                    <div className="medical-text">{selectedAppointment.symptoms}</div>
-                  </div>
-
-                  <div className="medical-section">
-                    <h3>Diagnóstico:</h3>
-                    <div className="medical-text">{selectedAppointment.diagnosis}</div>
-                  </div>
-
-                  <div className="medical-section">
-                    <h3>Tratamiento:</h3>
-                    <div className="medical-text">{selectedAppointment.treatment}</div>
-                  </div>
+          <div className="appointments-list">
+            {appointments.map((appointment) => (
+              <div key={appointment.id} className="appointment-item">
+                <div className="appointment-header" onClick={() => toggleAppointment(appointment.id)}>
+                  <span className="appointment-date">{appointment.date}</span>
+                  <button className="toggle-button">
+                    {expandedAppointment === appointment.id ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                  </button>
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </main>
-    </div>
+
+                {expandedAppointment === appointment.id && selectedAppointment && (
+                  <div className="appointment-details">
+                    <div className="medical-section">
+                      <h3>Síntomas:</h3>
+                      <div className="medical-text">{selectedAppointment.symptoms}</div>
+                    </div>
+
+                    <div className="medical-section">
+                      <h3>Diagnóstico:</h3>
+                      <div className="medical-text">{selectedAppointment.diagnosis}</div>
+                    </div>
+
+                    <div className="medical-section">
+                      <h3>Tratamiento:</h3>
+                      <div className="medical-text">{selectedAppointment.treatment}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </main>
+      </div>
     </div>
   )
 }

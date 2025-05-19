@@ -1,5 +1,4 @@
-
-  /* Base styles from CalendarPage.css */
+/* Base styles from CalendarPage.css */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -19,44 +18,41 @@ body {
   background-color: #f0f4f8;
 }
 
-/* Header Styles */
+/* Header styles */
 .home-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 1rem;
   background-color: #f0f4f8;
-  border-bottom: 1px solid #d1d5db;
 }
 
 .logo-container {
-  width: 80px;
-  height: 80px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .logo-circle {
-  width: 60px;
-  height: 60px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
-  overflow: hidden; /* <-- AGREGADO para que el logo quede recortado circular */
+  border: 2px solid #0c3b5e;
   display: flex;
   align-items: center;
   justify-content: center;
   background-color: white;
 }
 
-/* Nueva clase para el logo imagen */
-.logo-circle img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.logo-text {
+  font-weight: bold;
+  color: #0c3b5e;
+  font-size: 1.2rem;
 }
 
 .banner {
   flex: 1;
-  height: 60px;
+  height: 80px;
   background-color: #e2e8f0;
   border-radius: 10px;
   display: flex;
@@ -234,6 +230,7 @@ body {
   background-color: #e9f0f8;
   border-radius: 10px;
   padding: 1rem;
+  width: 100%;
 }
 
 .patient-info-header {
@@ -241,6 +238,7 @@ body {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
+  width: 100%;
 }
 
 .patient-info-header h2 {
@@ -248,8 +246,10 @@ body {
   font-size: 1.5rem;
 }
 
+/* Updated info-field styles to use more space */
 .info-field {
   margin-bottom: 1rem;
+  width: 100%;
 }
 
 .info-field label {
@@ -257,6 +257,7 @@ body {
   font-weight: bold;
   margin-bottom: 0.5rem;
   color: #0c3b5e;
+  width: 100%;
 }
 
 .info-field input,
@@ -266,6 +267,7 @@ body {
   border: 1px solid #d1e0ef;
   border-radius: 5px;
   background-color: white;
+  font-size: 1rem;
 }
 
 .info-field textarea {
@@ -273,10 +275,12 @@ body {
   resize: vertical;
 }
 
+/* Updated info-row to better distribute space */
 .info-row {
   display: flex;
-  gap: 1rem;
+  gap: 1.5rem;
   margin-bottom: 1rem;
+  width: 100%;
 }
 
 .info-row .info-field {
@@ -285,13 +289,16 @@ body {
 
 h3 {
   color: #0c3b5e;
-  margin: 1rem 0 0.5rem;
+  margin: 1.5rem 0 0.75rem;
+  width: 100%;
 }
 
 .patient-actions {
   display: flex;
   justify-content: space-between;
   margin-top: 2rem;
+  width: 100%;
+  gap: 1rem;
 }
 
 .delete-button {
@@ -302,6 +309,7 @@ h3 {
   border-radius: 5px;
   font-weight: bold;
   cursor: pointer;
+  min-width: 150px;
 }
 
 .history-button {
@@ -312,6 +320,7 @@ h3 {
   border-radius: 5px;
   font-weight: bold;
   cursor: pointer;
+  min-width: 150px;
 }
 
 .appointment-button {
@@ -325,6 +334,7 @@ h3 {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  min-width: 150px;
 }
 
 /* Patient History */
@@ -332,6 +342,7 @@ h3 {
   background-color: #e9f0f8;
   border-radius: 10px;
   padding: 1rem;
+  width: 100%;
 }
 
 .history-header {
@@ -339,6 +350,7 @@ h3 {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
+  width: 100%;
 }
 
 .history-header h2 {
@@ -359,12 +371,14 @@ h3 {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  width: 100%;
 }
 
 .appointment-item {
   border: 1px solid #d1e0ef;
   border-radius: 10px;
   overflow: hidden;
+  width: 100%;
 }
 
 .appointment-header {
@@ -374,6 +388,7 @@ h3 {
   padding: 1rem;
   background-color: #f0f4f8;
   cursor: pointer;
+  width: 100%;
 }
 
 .appointment-date {
@@ -384,10 +399,12 @@ h3 {
 .appointment-details {
   padding: 1rem;
   background-color: #f9fafc;
+  width: 100%;
 }
 
 .medical-section {
   margin-bottom: 1.5rem;
+  width: 100%;
 }
 
 .medical-section h3 {
@@ -401,6 +418,7 @@ h3 {
   border-radius: 5px;
   color: #333;
   line-height: 1.5;
+  width: 100%;
 }
 
 /* Estilo para horarios deshabilitados */
@@ -414,6 +432,80 @@ h3 {
 /* Asegurarse de que los horarios deshabilitados no cambien al pasar el mouse */
 .dropdown-item.disabled:hover {
   background-color: inherit;
+}
+
+/* Updated full-width-input to be more consistent */
+.full-width-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #d1e0ef;
+  border-radius: 5px;
+  resize: vertical;
+  min-height: 60px;
+  font-size: 1rem;
+}
+
+textarea.full-width-input {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.loading-indicator {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+  width: 100%;
+}
+
+.error-message {
+  background-color: #ffebee;
+  color: #c62828;
+  padding: 10px;
+  border-radius: 4px;
+  margin: 10px 0;
+  width: 100%;
+}
+
+.success-message {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  padding: 10px;
+  border-radius: 4px;
+  margin: 10px 0;
+  width: 100%;
+}
+
+.save-button {
+  background-color: #003366;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-weight: bold;
+  margin-top: 20px;
+}
+
+.save-button:hover {
+  background-color: #004080;
+}
+
+.save-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.patient-info-section {
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 20px;
+  width: 100%;
+}
+
+.patient-info-section h2 {
+  color: #003366;
+  margin-bottom: 20px;
 }
 
 /* Responsive styles */

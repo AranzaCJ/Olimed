@@ -391,7 +391,6 @@ function SettingsPage() {
               <button onClick={handleLogout} className="dropdown-item">
                 Cerrar sesión
               </button>
-              <button className="dropdown-item">Eliminar cuenta</button>
               <div className="dropdown-divider"></div>
             </div>
           )}
@@ -541,14 +540,6 @@ function SettingsPage() {
                         value={receptionistName}
                         onChange={(e) => setReceptionistName(e.target.value)}
                       />
-                    </div>
-                    <div className="form-group">
-                      <label>Clave:</label>
-                     <input
-                      type="text"
-                      value={receptionistClave}
-                      onChange={(e) => setReceptionistClave(e.target.value)}
-                    />
                     </div>
                   </div>
                   <div className="form-group">

@@ -1,5 +1,5 @@
 "use client"
-
+import { jwtDecode } from "jwt-decode"; 
 import { useState, useEffect } from "react"
 import "./CalendarPage.css"
 import { useNavigate, useLocation } from "react-router-dom"
@@ -25,15 +25,34 @@ function CalendarPage() {
     },
   ])
   const [blockedDates, setBlockedDates] = useState([
-    {
-      id: 1,
-      startDate: format(addDays(new Date(), 2), "yyyy-MM-dd"),
-      endDate: format(addDays(new Date(), 4), "yyyy-MM-dd"),
-      reason: "Vacaciones",
-      startTime: "09:00",
-      endTime: "18:00",
-    },
+
   ])
+//carga de dias bloqueados desde el backend
+  useEffect(() => {
+    const cargarDiasBloqueados = async () => {
+      try {
+        const response = await fetch("http://127.0.0.1:8000/diasBloqueados");
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          alert("Ocurrio un error: " + errorData.detail)
+        } else {
+          const data = await response.json()
+          const count = 0
+          const diasBloqueados = data.map((d, i) => ({
+            id: i + 1,
+            startDate: d,
+            endDate: d,
+          }))
+          setBlockedDates(diasBloqueados)
+        }
+      } catch (error) {
+        alert("Ocurrio un error al cargar los dias bloqueados" + error)
+      }
+    }
+    cargarDiasBloqueados()
+  }, [showBlockDays])
+
 
   // Check if we should open new appointment modal from navigation
   useEffect(() => {
@@ -55,7 +74,7 @@ function CalendarPage() {
   // Dropdown states
   const [showTimeDropdown, setShowTimeDropdown] = useState(false)
   const [showReasonDropdown, setShowReasonDropdown] = useState(false)
-  const [selectedTime, setSelectedTime] = useState("10:00 am")
+  const [selectedTime, setSelectedTime] = useState(null)
   const [selectedReason, setSelectedReason] = useState("Vacaciones")
   const [showUnblockModal, setShowUnblockModal] = useState(false)
   const [blockToUnblock, setBlockToUnblock] = useState(null)
@@ -87,28 +106,33 @@ function CalendarPage() {
   })
 
   // Time options
-  const timeOptions = [
-    "8:00 am",
-    "8:30 am",
-    "9:00 am",
-    "9:30 am",
-    "10:00 am",
-    "10:30 am",
-    "11:00 am",
-    "11:30 am",
-    "12:00 pm",
-    "12:30 pm",
-    "1:00 pm",
-    "1:30 pm",
-    "2:00 pm",
-    "2:30 pm",
-    "3:00 pm",
-    "3:30 pm",
-    "4:00 pm",
-    "4:30 pm",
-    "5:00 pm",
-    "5:30 pm",
-  ]
+  const [timeOptions, setTimeOptions] = useState([])
+  useEffect(() => {
+    const cargarHoras = async () => {
+      try {
+        const res = await fetch(`http://localhost:8000/fechasDisponibles?fecha=${newAppointment.date}`)
+        const data = await res.json()
+        setTimeOptions(data)
+
+        const disponible = data.find(h => h.disponible === 1 && h.bloqueado === 0)
+        if (disponible) {
+          console.log("imprimiendo la hora disponible");
+          console.log(disponible);
+          setSelectedTime(disponible)
+        }else{
+          setSelectedTime(null)
+        }
+
+      } catch (err) {
+        console.error("Error al cargar horarios:", err)
+      }
+    }
+
+    if (newAppointment.date) {
+      cargarHoras()
+    }
+
+  }, [newAppointment.date])  // Se ejecuta cada vez que cambia la fecha seleccionada
 
   // Navigate to previous month
   const prevMonth = () => {
@@ -227,7 +251,7 @@ function CalendarPage() {
   }
 
   // Añadir esta función para depuración
-  const logAppointmentsAndTimes = (date) => {
+  /*const logAppointmentsAndTimes = (date) => {
     console.log("Fecha seleccionada:", format(date, "yyyy-MM-dd"))
     const appts = getAppointmentsForDate(date)
     console.log("Citas para esta fecha:", appts)
@@ -236,14 +260,14 @@ function CalendarPage() {
       const isBooked = isTimeSlotBooked(date, time)
       console.log(`Hora ${time}: ${isBooked ? "OCUPADA" : "disponible"}`)
     })
-  }
+  }*/
 
   // Handle date selection
   const handleDateClick = (date) => {
     setSelectedDate(date)
 
     // Depurar las citas y horarios
-    logAppointmentsAndTimes(date)
+    //logAppointmentsAndTimes(date)
 
     // Check if date is blocked
     const block = getBlockForDate(date)
@@ -288,6 +312,35 @@ function CalendarPage() {
     })
   }
 
+  const handleDeleteAccount = async () => {
+    const token = localStorage.getItem("token");
+    const patientId = jwtDecode(token).sub;
+    //const navigate = useNavigate();
+    const ok = window.confirm("¿Estás seguro de querer eliminar tu cuenta?");
+    if (!ok) return;
+  
+    try {
+      const res = await fetch(
+        `http://127.0.0.1:8000/paciente/${patientId}`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+  
+      if (!res.ok) throw new Error("Error al eliminar cuenta");
+  
+      // Limpia el estado de sesión y redirige al login
+      localStorage.clear();
+      navigate("/login", { replace: true });
+    } catch (err) {
+      console.error(err);
+      alert("No se pudo eliminar la cuenta. Intenta de nuevo más tarde.");
+    }
+  };
   // Handle unblock confirmation
   const handleUnblock = () => {
     if (blockToUnblock) {
@@ -629,7 +682,7 @@ function CalendarPage() {
               <button onClick={handleLogout} className="dropdown-item">
                 Cerrar sesión
               </button>
-              <button className="dropdown-item">Eliminar cuenta</button>
+              <button className="dropdown-item" onClick={handleDeleteAccount}>Eliminar cuenta</button>
               <div className="dropdown-divider"></div>
             </div>
           )}
@@ -787,7 +840,15 @@ function CalendarPage() {
               <div className="form-group">
                 <label>Hora</label>
                 <div className="input-with-icon">
-                  <input type="text" value={selectedTime} readOnly onClick={toggleTimeDropdown} />
+                  <input type="text" value={
+                    selectedTime && selectedTime.fecha
+                      ? new Date(selectedTime.fecha).toLocaleTimeString("es-MX", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                      : ""
+                    } 
+                    readOnly onClick={toggleTimeDropdown} />
                   <div className="input-icons">
                     <div onClick={toggleTimeDropdown} style={{ cursor: "pointer" }}>
                       <ChevronDownIcon />
@@ -795,29 +856,37 @@ function CalendarPage() {
                   </div>
                   {showTimeDropdown && (
                     <div className="dropdown-menu">
-                      {timeOptions.map((time, index) => {
+                      {timeOptions.map((time) => {
                         // Verificar si la hora está ocupada
-                        const isBooked = isTimeSlotBooked(parseISO(newAppointment.date), time)
-                        console.log(`Renderizando hora ${time}: ${isBooked ? "OCUPADA" : "disponible"}`)
+                        const isBooked = time.disponible === 0 ? true : false;
+                        const isBlocked = time.bloqueado === 1 ? true : false;
+                        let mensaje = "";
+                        if (isBooked) mensaje = "Ocupado"
+                        if (isBlocked) mensaje = "Bloqueado"
+                        const hora = new Date(time.fecha).toLocaleTimeString("es-MX", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                        console.log(`Renderizando hora ${time.fecha}: ${isBooked ? "OCUPADA" : "disponible"}`)
 
                         return (
                           <div
-                            key={index}
-                            className={`dropdown-item ${isBooked ? "disabled" : ""}`}
+                            key={time.idFecha}
+                            className={`dropdown-item ${isBooked || isBlocked ? "disabled" : ""}`}
                             onClick={() => {
-                              if (!isBooked) {
+                              if (!isBooked && !isBlocked) {
                                 setSelectedTime(time)
                                 setShowTimeDropdown(false)
                               }
                             }}
                             style={{
-                              opacity: isBooked ? 0.5 : 1,
-                              cursor: isBooked ? "not-allowed" : "pointer",
-                              textDecoration: isBooked ? "line-through" : "none",
-                              color: isBooked ? "#999" : "inherit",
+                              opacity: isBooked || isBlocked ? 0.5 : 1,
+                              cursor: isBooked || isBlocked ? "not-allowed" : "pointer",
+                              textDecoration: isBooked || isBlocked ? "line-through" : "none",
+                              color: isBooked || isBlocked ? "#999" : "inherit",
                             }}
                           >
-                            {time} {isBooked && "(Ocupado)"}
+                            {hora} {mensaje && `(${mensaje})`}
                           </div>
                         )
                       })}

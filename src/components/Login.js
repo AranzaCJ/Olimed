@@ -15,6 +15,7 @@ function Login() {
     e.preventDefault()
     let isPaciente = true
     let role = ""
+    
     // Validación de correo electrónico
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(clave)) {
@@ -30,16 +31,14 @@ function Login() {
       return;
     }
 
-
     console.log("Login attempt with:", { clave, password })
-
 
     try {
       let url = ""
       if (isPaciente) {
         role = "paciente"
         url = "http://127.0.0.1:8000/auth/login/pacientes"
-    }
+      }
       else if (clave[2] === '1') {
         role = "medico"
         url = "http://127.0.0.1:8000/auth/login/medicos"
@@ -120,7 +119,7 @@ function Login() {
               <div className="form-fields">
                 <div className="form-field">
                   <label htmlFor="clave" className="field-label">
-                    Clave de acceso
+                    Correo electronico/Clave de acceso
                   </label>
                   <input
                     id="clave"

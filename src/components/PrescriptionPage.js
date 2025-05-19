@@ -183,7 +183,6 @@ function PrescriptionPage() {
               <button onClick={handleLogout} className="dropdown-item">
                 Cerrar sesión
               </button>
-              <button className="dropdown-item">Eliminar cuenta</button>
               <div className="dropdown-divider"></div>
             </div>
           )}
