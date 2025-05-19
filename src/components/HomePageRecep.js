@@ -131,8 +131,6 @@ useEffect(() => {
     </svg>
   )
 
- 
-
   const UserIcon = () => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -202,9 +200,6 @@ useEffect(() => {
             <div className="profile-dropdown">
               <button onClick={handleLogout} className="dropdown-item">
                 Cerrar sesión
-              </button>
-              <button onClick={handleDeleteAccount} className="dropdown-item">
-                Eliminar cuenta
               </button>
               <div className="dropdown-divider"></div>
             </div>

@@ -1,10 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import "./PatientPage.css"
 import { format } from "date-fns"
-import { fetchPatientData } from "../utils/api"
 
 function PatientPage() {
   const navigate = useNavigate()
@@ -16,105 +15,101 @@ function PatientPage() {
   const [selectedAppointment, setSelectedAppointment] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [patients, setPatients] = useState([])
 
-  // Sample patient data
-  const patients = [
-    {
-      id: 1,
-      name: "Andrei Martínez Bahena",
-      age: 20,
-      address: {
-        state: "Morelos",
-        municipality: "Amacuzac",
-        street: "Juan Alvarez",
-        number: "S/N",
-      },
-      contact: {
-        email: "Hungryblock117@Hotmail.com",
-        phone1: "734 153 9607",
-        phone2: "734 153 1000",
-      },
-      appointments: [
-        {
-          id: 1,
-          date: "03/02/2025",
-          symptoms:
-            "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi vehicula auctor eros sed hendrerit. Orci varius natoque penatibus",
-          diagnosis:
-            "Proin turpis nisl, sagittis a lobortis sit amet, efficitur vel nibh. In et felis fermentum, dictum tortor ut, molestie magna. Proin volutpat augue sollicitudin magna ullamcorper, quis rutrum enim scelerisque.",
-          treatment:
-            "Proin turpis nisl, sagittis a lobortis sit amet, efficitur vel nibh. In et felis fermentum, dictum tortor ut, molestie magna. Proin volutpat augue sollicitudin magna ullamcorper, quis rutrum enim scelerisque.",
-        },
-        {
-          id: 2,
-          date: "15/01/2025",
-          symptoms:
-            "Dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-          diagnosis:
-            "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
-          treatment:
-            "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.",
-        },
-      ],
-    },
-    {
-      id: 2,
-      name: "Aranza Castañeda Juarez",
-      age: 25,
-      address: {
-        state: "Morelos",
-        municipality: "Cuernavaca",
-        street: "Reforma",
-        number: "123",
-      },
-      contact: {
-        email: "aranza.castaneda@gmail.com",
-        phone1: "777 123 4567",
-        phone2: "",
-      },
-      appointments: [
-        {
-          id: 1,
-          date: "10/03/2025",
-          symptoms: "Dolor de cabeza, fiebre y malestar general.",
-          diagnosis: "Infección viral de vías respiratorias superiores.",
-          treatment: "Paracetamol 500mg cada 8 horas por 3 días. Reposo y abundantes líquidos.",
-        },
-      ],
-    },
-    {
-      id: 3,
-      name: "Daniela Zayuri Sanchez Gomez",
-      age: 30,
-      address: {
-        state: "Morelos",
-        municipality: "Jiutepec",
-        street: "Independencia",
-        number: "45",
-      },
-      contact: {
-        email: "daniela.sanchez@outlook.com",
-        phone1: "777 987 6543",
-        phone2: "777 456 7890",
-      },
-      appointments: [
-        {
-          id: 1,
-          date: "20/02/2025",
-          symptoms: "Dolor abdominal, náuseas y vómito.",
-          diagnosis: "Gastroenteritis aguda.",
-          treatment: "Butilhioscina 10mg cada 8 horas. Dieta blanda y abundantes líquidos.",
-        },
-        {
-          id: 2,
-          date: "05/01/2025",
-          symptoms: "Tos seca, dolor de garganta y congestión nasal.",
-          diagnosis: "Faringitis aguda.",
-          treatment: "Ibuprofeno 400mg cada 8 horas por 5 días. Gárgaras con agua tibia y sal.",
-        },
-      ],
-    },
-  ]
+  // Fetch all patients from the database on component mount
+  useEffect(() => {
+    const fetchPatients = async () => {
+      setIsLoading(true)
+      try {
+        const response = await fetch("http://127.0.0.1:8000/pacientes")
+        if (!response.ok) {
+          throw new Error(`Error: ${response.status}`)
+        }
+        const data = await response.json()
+
+        // Transform the data to match our expected format
+        const formattedPatients = data.map((patient) => ({
+          id: patient.idPaciente,
+          name: patient.nombre,
+          age: calculateAge(patient.fecha_nacimiento),
+          address: {
+            full: patient.direccion || "",
+            state: "",
+            municipality: "",
+            street: "",
+            number: "",
+          },
+          contact: {
+            email: patient.correo || "",
+            phone1: patient.telefonos && patient.telefonos.length > 0 ? patient.telefonos[0] : "",
+            phone2: patient.telefonos && patient.telefonos.length > 1 ? patient.telefonos[1] : "",
+          },
+          appointments: [],
+        }))
+
+        setPatients(formattedPatients)
+      } catch (err) {
+        console.error("Error fetching patients:", err)
+        setError("Error al cargar la lista de pacientes. Por favor, inténtelo de nuevo.")
+
+        // Fallback to sample data if API fails
+        setPatients([
+          {
+            id: 1,
+            name: "Andrei Martínez Bahena",
+            age: 20,
+            address: {
+              state: "Morelos",
+              municipality: "Amacuzac",
+              street: "Juan Alvarez",
+              number: "S/N",
+            },
+            contact: {
+              email: "Hungryblock117@Hotmail.com",
+              phone1: "734 153 9607",
+              phone2: "734 153 1000",
+            },
+            appointments: [],
+          },
+          {
+            id: 2,
+            name: "Aranza Castañeda Juarez",
+            age: 25,
+            address: {
+              state: "Morelos",
+              municipality: "Cuernavaca",
+              street: "Reforma",
+              number: "123",
+            },
+            contact: {
+              email: "aranza.castaneda@gmail.com",
+              phone1: "777 123 4567",
+              phone2: "",
+            },
+            appointments: [],
+          },
+        ])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchPatients()
+  }, [])
+
+  // Helper function to calculate age from birthdate
+  const calculateAge = (birthdate) => {
+    if (!birthdate) return ""
+    const today = new Date()
+    const birthDate = new Date(birthdate)
+    let age = today.getFullYear() - birthDate.getFullYear()
+    const monthDiff = today.getMonth() - birthDate.getMonth()
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--
+    }
+    return age
+  }
 
   // Toggle patient expansion
   const togglePatient = (patientId) => {
@@ -122,6 +117,7 @@ function PatientPage() {
       setExpandedPatient(null)
       setShowPatientDetails(false)
       setShowPatientHistory(false)
+      setSelectedPatient(null)
     } else {
       setExpandedPatient(patientId)
       const patient = patients.find((p) => p.id === patientId)
@@ -140,7 +136,12 @@ function PatientPage() {
     setError(null)
 
     try {
-      const data = await fetchPatientData(patientId)
+      const response = await fetch(`http://127.0.0.1:8000/paciente/${patientId}`)
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`)
+      }
+
+      const data = await response.json()
 
       // Update the selected patient with API data
       setSelectedPatient((prevPatient) => {
@@ -149,14 +150,15 @@ function PatientPage() {
         return {
           ...prevPatient,
           name: data.nombre,
+          age: calculateAge(data.fecha_nacimiento),
           contact: {
-            ...prevPatient.contact,
-            email: data.correo,
-            // Note: The API doesn't have phone fields in the schema, so we keep the existing ones
+            email: data.correo || "",
+            phone1: data.telefonos && data.telefonos.length > 0 ? data.telefonos[0] : "",
+            phone2: data.telefonos && data.telefonos.length > 1 ? data.telefonos[1] : "",
           },
           address: {
             ...prevPatient.address,
-            full: data.direccion,
+            full: data.direccion || "",
           },
         }
       })
@@ -193,14 +195,15 @@ function PatientPage() {
 
   // Navigate to calendar with new appointment
   const navigateToNewAppointment = () => {
-    // Incluir la fecha actual para asegurar que la funcionalidad de horarios inhabilitados funcione correctamente
+    // Include the current date for proper disabled time slots functionality
     const currentDate = new Date()
     navigate("/calendar", {
       state: {
         openNewAppointment: true,
         patientId: selectedPatient.id,
+        patientName: selectedPatient.name, // Add patient name to state
         selectedDate: format(currentDate, "yyyy-MM-dd"),
-        fromPatientPage: true, // Añadir un flag para indicar que viene de la página de pacientes
+        fromPatientPage: true,
       },
     })
   }
@@ -340,7 +343,7 @@ function PatientPage() {
       <header className="home-header">
         <div className="logo-container">
           <div className="logo-circle">
-             <img src="/logo.jpg" alt="Logo"/>
+            <img src="/logo.jpg" alt="Logo" />
           </div>
         </div>
         <div className="banner">
@@ -355,7 +358,6 @@ function PatientPage() {
               <button onClick={handleLogout} className="dropdown-item">
                 Cerrar sesión
               </button>
-              <button className="dropdown-item">Eliminar cuenta</button>
               <div className="dropdown-divider"></div>
             </div>
           )}
@@ -380,128 +382,144 @@ function PatientPage() {
 
         {/* Main Content */}
         <main className="main-content">
-          <div className="patients-container">
-            {/* Patient List */}
-            {patients.map((patient) => (
-              <div key={patient.id} className="patient-section">
-                <div className="patient-header" onClick={() => togglePatient(patient.id)}>
-                  <span className="patient-name">{patient.name}</span>
-                  <button className="toggle-button">
-                    {expandedPatient === patient.id ? <ChevronUpIcon /> : <ChevronDownIcon />}
-                  </button>
-                </div>
+          {isLoading && !selectedPatient ? (
+            <div className="loading-container">
+              <div className="loading-indicator">Cargando pacientes...</div>
+            </div>
+          ) : error && patients.length === 0 ? (
+            <div className="error-container">
+              <div className="error-message">{error}</div>
+            </div>
+          ) : (
+            <div className="patients-container">
+              {/* Patient List */}
+              {patients.map((patient) => (
+                <div key={patient.id} className="patient-section">
+                  <div className="patient-header" onClick={() => togglePatient(patient.id)}>
+                    <span className="patient-name">{patient.name}</span>
+                    <button className="toggle-button">
+                      {expandedPatient === patient.id ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                    </button>
+                  </div>
 
-                {/* Patient Details */}
-                {expandedPatient === patient.id && (
-                  <div className="patient-details">
-                    {showPatientDetails && (
-                      <div className="patient-info">
-                        <div className="patient-info-header">
-                          <h2>{selectedPatient.name}</h2>
-                          <button className="toggle-button" onClick={() => setShowPatientDetails(false)}>
-                            <ChevronUpIcon />
-                          </button>
-                        </div>
+                  {/* Patient Details */}
+                  {expandedPatient === patient.id && selectedPatient && (
+                    <div className="patient-details">
+                      {showPatientDetails && (
+                        <div className="patient-info">
+                          <div className="patient-info-header">
+                            
+                          </div>
 
-                        {isLoading ? (
-                          <div className="loading-indicator">Cargando datos del paciente...</div>
-                        ) : error ? (
-                          <div className="error-message">{error}</div>
-                        ) : (
-                          <>
-                            <div className="info-field">
-                              <label>Edad:</label>
-                              <input type="text" value={selectedPatient.age} readOnly />
-                            </div>
-
-                            <h3>Dirección</h3>
-                            <div className="info-field">
-                              <label>Dirección completa:</label>
-                              <input
-                                type="text"
-                                value={
-                                  selectedPatient.address.full ||
-                                  `${selectedPatient.address.street} ${selectedPatient.address.number}, ${selectedPatient.address.municipality}, ${selectedPatient.address.state}`
-                                }
-                                readOnly
-                                className="full-width-input"
-                              />
-                            </div>
-
-                            <h3>Contacto</h3>
-                            <div className="info-field">
-                              <label>Correo electrónico:</label>
-                              <input type="text" value={selectedPatient.contact.email} readOnly />
-                            </div>
-                            <div className="info-row">
+                          {isLoading ? (
+                            <div className="loading-indicator">Cargando datos del paciente...</div>
+                          ) : error ? (
+                            <div className="error-message">{error}</div>
+                          ) : (
+                            <>
                               <div className="info-field">
-                                <label>Teléfono 1:</label>
-                                <input type="text" value={selectedPatient.contact.phone1} readOnly />
+                                <label>Edad:</label>
+                                <input type="text" value={selectedPatient.age} readOnly />
                               </div>
+
+                              
                               <div className="info-field">
-                                <label>Teléfono 2:</label>
-                                <input type="text" value={selectedPatient.contact.phone2} readOnly />
+                                <label>Dirección completa:</label>
+                                <input
+                                  type="text"
+                                  value={selectedPatient.address.full || "No registrada"}
+                                  readOnly
+                                  className="full-width-input"
+                                />
                               </div>
-                            </div>
 
-                            <div className="patient-actions">
-                              <button className="appointment-button" onClick={navigateToNewAppointment}>
-                                Nueva cita <PlusIcon />
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
+                              <h3>Contacto</h3>
+                              <div className="info-field">
+                                <label>Correo electrónico:</label>
+                                <input type="text" value={selectedPatient.contact.email || "No registrado"} readOnly />
+                              </div>
+                              <div className="info-row">
+                                <div className="info-field">
+                                  <label>Teléfono 1:</label>
+                                  <input
+                                    type="text"
+                                    value={selectedPatient.contact.phone1 || "No registrado"}
+                                    readOnly
+                                  />
+                                </div>
+                                <div className="info-field">
+                                  <label>Teléfono 2:</label>
+                                  <input
+                                    type="text"
+                                    value={selectedPatient.contact.phone2 || "No registrado"}
+                                    readOnly
+                                  />
+                                </div>
+                              </div>
 
-                    {/* Patient History */}
-                    {showPatientHistory && (
-                      <div className="patient-history">
-                        <div className="history-header">
-                          <h2>Historial de {selectedPatient.name}</h2>
-                          <button className="back-button" onClick={showDetails}>
-                            Volver
-                          </button>
-                        </div>
-
-                        <div className="appointments-list">
-                          {selectedPatient.appointments.map((appointment) => (
-                            <div key={appointment.id} className="appointment-item">
-                              <div className="appointment-header" onClick={() => toggleAppointment(appointment.id)}>
-                                <span className="appointment-date">{appointment.date}</span>
-                                <button className="toggle-button">
-                                  {expandedAppointment === appointment.id ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                              <div className="patient-actions">
+                                <button className="appointment-button" onClick={navigateToNewAppointment}>
+                                  Nueva cita <PlusIcon />
                                 </button>
                               </div>
-
-                              {expandedAppointment === appointment.id && (
-                                <div className="appointment-details">
-                                  <div className="medical-section">
-                                    <h3>Síntomas:</h3>
-                                    <div className="medical-text">{appointment.symptoms}</div>
-                                  </div>
-
-                                  <div className="medical-section">
-                                    <h3>Diagnóstico:</h3>
-                                    <div className="medical-text">{appointment.diagnosis}</div>
-                                  </div>
-
-                                  <div className="medical-section">
-                                    <h3>Tratamiento</h3>
-                                    <div className="medical-text">{appointment.treatment}</div>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                            </>
+                          )}
                         </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+                      )}
+
+                      {/* Patient History */}
+                      {showPatientHistory && (
+                        <div className="patient-history">
+                          <div className="history-header">
+                            <h2>Historial de {selectedPatient.name}</h2>
+                            <button className="back-button" onClick={showDetails}>
+                              Volver
+                            </button>
+                          </div>
+
+                          <div className="appointments-list">
+                            {selectedPatient.appointments.length > 0 ? (
+                              selectedPatient.appointments.map((appointment) => (
+                                <div key={appointment.id} className="appointment-item">
+                                  <div className="appointment-header" onClick={() => toggleAppointment(appointment.id)}>
+                                    <span className="appointment-date">{appointment.date}</span>
+                                    <button className="toggle-button">
+                                      {expandedAppointment === appointment.id ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                                    </button>
+                                  </div>
+
+                                  {expandedAppointment === appointment.id && (
+                                    <div className="appointment-details">
+                                      <div className="medical-section">
+                                        <h3>Síntomas:</h3>
+                                        <div className="medical-text">{appointment.symptoms}</div>
+                                      </div>
+
+                                      <div className="medical-section">
+                                        <h3>Diagnóstico:</h3>
+                                        <div className="medical-text">{appointment.diagnosis}</div>
+                                      </div>
+
+                                      <div className="medical-section">
+                                        <h3>Tratamiento</h3>
+                                        <div className="medical-text">{appointment.treatment}</div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              ))
+                            ) : (
+                              <div className="no-appointments">No hay citas registradas</div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </main>
       </div>
     </div>

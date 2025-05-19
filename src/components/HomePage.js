@@ -67,6 +67,7 @@ useEffect(() => {
   // Handle logout
   const handleLogout = () => {
     // In a real app, you would clear authentication tokens/cookies here
+    
     navigate("/login")
   }
 
@@ -217,9 +218,6 @@ useEffect(() => {
             <div className="profile-dropdown">
               <button onClick={handleLogout} className="dropdown-item">
                 Cerrar sesión
-              </button>
-              <button onClick={handleDeleteAccount} className="dropdown-item">
-                Eliminar cuenta
               </button>
               <div className="dropdown-divider"></div>
             </div>

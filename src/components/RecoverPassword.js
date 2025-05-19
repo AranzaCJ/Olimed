@@ -13,18 +13,40 @@ function RecoverPassword() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const navigate = useNavigate()
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    // Check if passwords match
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     if (newPassword !== confirmPassword) {
-      alert("Las contraseñas no coinciden")
-      return
+      alert('Las contraseñas no coinciden');
+      return;
     }
-    // Handle password recovery logic here
-    console.log("Password recovery attempt with:", { name, email, newPassword })
-    // Redirect to login page after successful password change
-    navigate("/login")
-  }
+
+    try {
+      const res = await fetch('http://127.0.0.1:8000/auth/recover-password/paciente', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          nombre: name,
+          correo: email,
+          new_password: newPassword
+        })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || 'Error al recuperar contraseña');
+      }
+
+      alert('Contraseña actualizada correctamente');
+      // Opcional: redirigir al login
+      navigate('/login');
+    } catch (err) {
+      console.error(err);
+      alert(`No se pudo cambiar la contraseña: ${err.message}`);
+    }
+  };
+
 
   // Simple Eye icons
   const EyeIcon = () => (
@@ -94,35 +116,36 @@ function RecoverPassword() {
 
             <form onSubmit={handleSubmit}>
               <div className="form-fields">
+                {/* Nombre */}
                 <div className="form-field">
-                  <label htmlFor="name" className="field-label">
-                    Nombre
-                  </label>
+                  <label htmlFor="name" className="field-label">Nombre</label>
                   <input
                     id="name"
                     type="text"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={e => setName(e.target.value)}
                     className="field-input"
                     required
                   />
                 </div>
 
+                {/* Email o teléfono */}
                 <div className="form-field">
                   <label htmlFor="recover-email" className="field-label">
-                    Correo electronico o telefono
+                    Correo electrónico o teléfono
                   </label>
                   <input
                     id="recover-email"
                     type="text"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={e => setEmail(e.target.value)}
                     className="field-input"
                     placeholder="ejemplo@ejemplo.com"
                     required
                   />
                 </div>
 
+                {/* Nueva contraseña */}
                 <div className="form-field">
                   <label htmlFor="new-password" className="field-label">
                     Contraseña nueva
@@ -130,22 +153,23 @@ function RecoverPassword() {
                   <div className="password-field">
                     <input
                       id="new-password"
-                      type={showNewPassword ? "text" : "password"}
+                      type={showNewPassword ? 'text' : 'password'}
                       value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
+                      onChange={e => setNewPassword(e.target.value)}
                       className="field-input"
                       required
                     />
                     <button
                       type="button"
                       className="password-toggle"
-                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      onClick={() => setShowNewPassword(v => !v)}
                     >
                       {showNewPassword ? <EyeOffIcon /> : <EyeIcon />}
                     </button>
                   </div>
                 </div>
 
+                {/* Confirmar contraseña */}
                 <div className="form-field">
                   <label htmlFor="confirm-password" className="field-label">
                     Confirmar contraseña
@@ -153,22 +177,23 @@ function RecoverPassword() {
                   <div className="password-field">
                     <input
                       id="confirm-password"
-                      type={showConfirmPassword ? "text" : "password"}
+                      type={showConfirmPassword ? 'text' : 'password'}
                       value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      onChange={e => setConfirmPassword(e.target.value)}
                       className="field-input"
                       required
                     />
                     <button
                       type="button"
                       className="password-toggle"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      onClick={() => setShowConfirmPassword(v => !v)}
                     >
                       {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
                     </button>
                   </div>
                 </div>
 
+                {/* Botón de envío */}
                 <button type="submit" className="submit-button">
                   Cambiar contraseña
                 </button>

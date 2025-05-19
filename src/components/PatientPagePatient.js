@@ -1,5 +1,5 @@
 "use client"
-
+import { jwtDecode } from "jwt-decode"
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import "./PatientPage.css"
@@ -148,6 +148,33 @@ function PatientPage() {
   const [showDropdown, setShowDropdown] = useState(false)
   const toggleDropdown = () => {
     setShowDropdown(!showDropdown)
+  }
+
+  const handleDeleteAccount = async () => {
+    const token = localStorage.getItem("token")
+    const patientId = jwtDecode(token).sub
+    //const navigate = useNavigate();
+    const ok = window.confirm("¿Estás seguro de querer eliminar tu cuenta?")
+    if (!ok) return
+
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/paciente/${patientId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!res.ok) throw new Error("Error al eliminar cuenta")
+
+      // Limpia el estado de sesión y redirige al login
+      localStorage.clear()
+      navigate("/login", { replace: true })
+    } catch (err) {
+      console.error(err)
+      alert("No se pudo eliminar la cuenta. Intenta de nuevo más tarde.")
+    }
   }
 
   // Handle logout
@@ -366,7 +393,7 @@ function PatientPage() {
       <header className="home-header">
         <div className="logo-container">
           <div className="logo-circle">
-            <img src="/logo.jpg" alt="Logo"/>
+            <img src="/logo.jpg" alt="Logo" />
           </div>
         </div>
         <div className="banner">
@@ -381,7 +408,9 @@ function PatientPage() {
               <button onClick={handleLogout} className="dropdown-item">
                 Cerrar sesión
               </button>
-              <button className="dropdown-item">Eliminar cuenta</button>
+              <button className="dropdown-item" onClick={handleDeleteAccount}>
+                Eliminar cuenta
+              </button>
               <div className="dropdown-divider"></div>
             </div>
           )}
@@ -439,103 +468,6 @@ function PatientPage() {
                 )}
               </div>
             ))}
-          </div>
-          {/* Patient Information Section - Add this if it doesn't exist */}
-          <div className="patient-info-section">
-            <h2>Mi Información</h2>
-
-            {isLoading ? (
-              <div className="loading-indicator">Cargando datos del paciente...</div>
-            ) : error ? (
-              <div className="error-message">{error}</div>
-            ) : (
-              editablePatient && (
-                <>
-                  <div className="info-field">
-                    <label>Nombre:</label>
-                    <input
-                      type="text"
-                      value={editablePatient.name}
-                      onChange={(e) => handleInputChange(e, null, "name")}
-                    />
-                  </div>
-
-                  <div className="info-field">
-                    <label>Edad:</label>
-                    <input
-                      type="number"
-                      value={editablePatient.age}
-                      onChange={(e) => handleInputChange(e, null, "age")}
-                    />
-                  </div>
-
-                  <div className="info-field">
-                    <label>Fecha de nacimiento:</label>
-                    <input
-                      type="date"
-                      value={editablePatient.medicalInfo?.birthDate || ""}
-                      onChange={(e) => {
-                        setEditablePatient((prev) => ({
-                          ...prev,
-                          medicalInfo: {
-                            ...prev.medicalInfo,
-                            birthDate: e.target.value,
-                          },
-                          age: calculateAge(e.target.value),
-                        }))
-                      }}
-                    />
-                  </div>
-
-                  <h3>Dirección</h3>
-                  <div className="info-field">
-                    <label>Dirección completa:</label>
-                    <textarea
-                      value={editablePatient.address.full}
-                      onChange={handleAddressChange}
-                      className="full-width-input"
-                    />
-                  </div>
-
-                  <h3>Contacto</h3>
-                  <div className="info-field">
-                    <label>Correo electrónico:</label>
-                    <input
-                      type="email"
-                      value={editablePatient.contact.email}
-                      onChange={(e) => handleInputChange(e, "contact", "email")}
-                    />
-                  </div>
-
-                  <div className="info-row">
-                    <div className="info-field">
-                      <label>Teléfono 1:</label>
-                      <input
-                        type="tel"
-                        value={editablePatient.contact.phone1}
-                        onChange={(e) => handleInputChange(e, "contact", "phone1")}
-                      />
-                    </div>
-                    <div className="info-field">
-                      <label>Teléfono 2:</label>
-                      <input
-                        type="tel"
-                        value={editablePatient.contact.phone2}
-                        onChange={(e) => handleInputChange(e, "contact", "phone2")}
-                      />
-                    </div>
-                  </div>
-
-                  {successMessage && <div className="success-message">{successMessage}</div>}
-
-                  <div className="patient-actions">
-                    <button className="save-button" onClick={savePatientInfo} disabled={isSaving}>
-                      {isSaving ? "Guardando..." : "Guardar Información"}
-                    </button>
-                  </div>
-                </>
-              )
-            )}
           </div>
         </main>
       </div>
