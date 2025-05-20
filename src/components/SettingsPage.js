@@ -79,9 +79,8 @@ function SettingsPage() {
 
   // Handle logout
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("userRole");
-    navigate("/login")
+    localStorage.clear();
+    navigate("/login", { replace: true });
   }
 
   // Handle password change

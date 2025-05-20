@@ -179,7 +179,8 @@ function PatientPage() {
 
   // Handle logout
   const handleLogout = () => {
-    navigate("/login")
+    localStorage.clear();
+    navigate("/login", { replace: true });
   }
 
   // Handle input changes for editable fields
