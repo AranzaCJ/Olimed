@@ -1,10 +1,12 @@
 "use client"
 import { useEffect } from "react"
 import { useState } from "react"
+import { useMemo } from "react"
 //import { useState, useEffect } from "react"
 import "./CalendarPage.css"
 import { useNavigate, useLocation } from "react-router-dom"
-import { format, addMonths, subMonths, isSameDay, parseISO, addDays } from "date-fns"
+import { format, addMonths, subMonths, isSameDay, parseISO, addDays, isDate } from "date-fns"
+import { es } from "date-fns/locale"
 
 //const [patientList, setPatientList] = useState([]);
 
@@ -16,20 +18,7 @@ function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [showNewAppointment, setShowNewAppointment] = useState(false)
   const [showBlockDays, setShowBlockDays] = useState(false)
-  const [appointments, setAppointments] = useState([
-    {
-      id: 1,
-      patient: "María López",
-      date: format(new Date(), "yyyy-MM-dd"),
-      time: "10:00",
-    },
-    {
-      id: 2,
-      patient: "Andrei Martinez Bahena",
-      date: format(addDays(new Date(), 1), "yyyy-MM-dd"),
-      time: "1:00 pm",
-    },
-  ])
+  const [appointments, setAppointments] = useState([])
   const [blockedDates, setBlockedDates] = useState([
   ])
 
@@ -60,6 +49,7 @@ function CalendarPage() {
   }, [showBlockDays])
 
   // Check if we should open new appointment modal from navigation
+  // 1. Load the patient list
   useEffect(() => {
     const fetchPacientes = async () => {
       try {
@@ -67,58 +57,65 @@ function CalendarPage() {
         if (!response.ok) throw new Error("Error al cargar pacientes")
 
         const data = await response.json()
-
-        // Mapeamos al formato { id, name }
         const list = data.map((p) => ({
           id: p.idPaciente,
           name: p.nombre,
+          fecha_nacimiento: p.fecha_nacimiento
         }))
 
+        console.log("Fetched patient list:", list)
         setPatientList(list)
       } catch (err) {
         console.error(err)
-        setPatientList([]) // o algún valor por defecto
+        setPatientList([])
       }
     }
+
     fetchPacientes()
+  }, []) // solo al montar
 
-    if (location.state?.openNewAppointment) {
-      setShowNewAppointment(true)
-      // Si se pasó una fecha seleccionada, usarla
-      if (location.state.selectedDate) {
-        const selectedDateObj = parseISO(location.state.selectedDate)
-        setSelectedDate(selectedDateObj)
-        setNewAppointment({
-          ...newAppointment,
-          date: location.state.selectedDate,
-        })
-      }
+// 2. Handle URL state after patient list is available
+useEffect(() => {
+  if (!location.state || patientList.length === 0) return
 
-      // Si un paciente ID fue pasado, pre-seleccionar ese paciente
-      if (location.state.patientId) {
-        const patientName = getPatientNameById(location.state.patientId)
-        setPatientSearchText(patientName)
-        setNewAppointment({
-          ...newAppointment,
-          patient: patientName,
-        })
-      }
+  setShowNewAppointment(true)
 
-      // Si un nombre de paciente fue pasado directamente, usarlo
-      if (location.state.patientName) {
-        setPatientSearchText(location.state.patientName)
-        setNewAppointment({
-          ...newAppointment,
-          patient: location.state.patientName,
-        })
-      }
+  if (location.state.selectedDate) {
+    const selectedDateObj = parseISO(location.state.selectedDate)
+    setSelectedDate(selectedDateObj)
+    setNewAppointment((prev) => ({
+      ...prev,
+      date: location.state.selectedDate,
+    }))
+  }
+
+  if (location.state.patientId) {
+    const patient = patientList.find((p) => p.id === location.state.patientId)
+    if (patient) {
+      setPatientSearchText(patient.name)
+      setNewAppointment((prev) => ({
+        ...prev,
+        patient: patient.name,
+      }))
     }
-  }, [location.state])
+  }
+
+  if (location.state.patientName) {
+    setPatientSearchText(location.state.patientName)
+    setNewAppointment((prev) => ({
+      ...prev,
+      patient: location.state.patientName,
+    }))
+  }
+}, [location.state, patientList]) // <-- wait for both
+
 
   // Function to get patient name by ID
   const getPatientNameById = (id) => {
-    const patient = patientList.find((p) => p.id === id)
-    return patient ? patient.name : ""
+    console.log("Buscando paciente con id:", id, "en", patientList)
+    const patient = patientList.find((p) => p.id === Number(id))
+    console.log("patient: ", patient)
+    return patient ? patient.name : "Paciente desconocido"
   }
 
   // Dropdown states
@@ -128,6 +125,8 @@ function CalendarPage() {
   const [selectedReason, setSelectedReason] = useState("Vacaciones")
   const [showUnblockModal, setShowUnblockModal] = useState(false)
   const [blockToUnblock, setBlockToUnblock] = useState(null)
+  const [selectedPatient, setSelectedPatient] = useState([])
+
 
   // Add this after the other state declarations
   const [showAppointmentHours, setShowAppointmentHours] = useState(false)
@@ -164,37 +163,110 @@ function CalendarPage() {
     endTime: "18:00",
   })
 
+  const safeSearchText = patientSearchText?.toLowerCase() || "";
+
   // Filtered patients based on search
-  const filteredPatients = patientList
-    .filter((patient) => patient.name.toLowerCase().includes(patientSearchText.toLowerCase()))
-    .map((patient) => patient.name)
+  const filteredPatients = Array.isArray(patientList)
+  ? patientList
+      .filter(
+        (patient) =>
+          typeof patient?.name === "string" &&
+          patient.name.toLowerCase().includes(safeSearchText.toLowerCase())
+      )
+  : [];
+
+  const cargarHoras = async () => {
+    try {
+      const res = await fetch(`http://localhost:8000/fechasDisponibles?fecha=${newAppointment.date}`)
+      const data = await res.json()
+      setTimeOptions(data)
+
+      const disponible = data.find(h => h.disponible === 1 && h.bloqueado === 0)
+      if (disponible) {
+        console.log("Imprimiendo hora disponible")
+        console.log(disponible)
+        setSelectedTime(disponible)
+      } else {
+        setSelectedTime(null)
+      }
+    } catch (err) {
+      console.error("Error al cargar horarios:", err)
+    }
+  }
+
+const cargarCitas = async () => {
+  try {
+    const res = await fetch("http://localhost:8000/citas/1")
+    const data = await res.json()
+
+    if (Array.isArray(data)) {
+      const citasFormateadas = data.map((cita) => {
+        const fecha = parseISO(cita.fecha) // formato ISO desde el backend
+        const paciente = patientList.find((p) => p.id === cita.idPaciente)
+        const nombrePaciente = paciente ? paciente.name : "Paciente desconocido"
+
+        return {
+          id: cita.idCita,
+          patient: nombrePaciente, // función que convierte ID a nombre
+          date: format(new Date(cita.fecha), "yyyy-MM-dd"),
+          time: format(new Date(cita.fecha), "h:mm a", { locale: es }),
+          idPaciente: cita.idPaciente
+        }
+      })
+      console.log("Citas formateadas: ", citasFormateadas)
+
+      setAppointments(citasFormateadas)
+    } else {
+      console.log("La respuesta no es un arreglo:", data)
+      setAppointments([])
+    }
+  } catch (error) {
+    console.log("Error al cargar citas:", error)
+    setAppointments([])
+  }
+}
+
+  // Get appointments for selected date
+  const getAppointmentsForDate = (date) => {
+  return appointments.filter((appointment) => {
+    try {
+      const appointmentDate =
+        typeof appointment.fecha === "string"
+          ? parseISO(appointment.fecha)
+          : appointment.fecha // si ya es un Date
+
+      return isSameDay(appointmentDate, date)
+    } catch (error) {
+      console.error("Error al comparar fechas:", error)
+      return false
+    }
+  })
+}
+
+  const citasDelDia = useMemo(() => {
+    if (!selectedDate || appointments.length === 0) return []
+    return appointments.filter((appointment) => {
+      try {
+        return isSameDay(parseISO(appointment.date), selectedDate)
+      } catch (e) {
+        return false
+      }
+    })
+  }, [appointments, selectedDate])
 
   // Time options
   const [timeOptions, setTimeOptions] = useState([])
   useEffect(() => {
-    const cargarHoras = async () => {
-      try {
-        const res = await fetch(`http://localhost:8000/fechasDisponibles?fecha=${newAppointment.date}`)
-        const data = await res.json()
-        setTimeOptions(data)
-
-        const disponible = data.find(h => h.disponible === 1 && h.bloqueado === 0)
-        if (disponible) {
-          console.log("Imprimiendo hora disponible")
-          console.log(disponible) 
-          setSelectedTime(disponible)
-        }else{
-          setSelectedTime(null)
-        }
-      } catch (err) {
-        console.error("Error al cargar horarios:", err)
-      }
-    }
-
     if (newAppointment.date) {
       cargarHoras()
     }
-  }, [newAppointment.date, showNewAppointment]) // Se ejecuta cada vez que cambia la fecha seleccionada
+  }, [newAppointment.date, showNewAppointment])
+
+  useEffect(() => {
+  if (patientList.length > 0) {
+    cargarCitas()
+  }
+}, [patientList])
 
   // Reason options
   const reasonOptions = ["Vacaciones", "Día festivo", "Capacitación", "Mantenimiento", "Otro"]
@@ -250,17 +322,6 @@ function CalendarPage() {
         const start = parseISO(block.startDate)
         const end = parseISO(block.endDate)
         return date >= start && date <= end
-      } catch (error) {
-        return false
-      }
-    })
-  }
-
-  // Get appointments for selected date
-  const getAppointmentsForDate = (date) => {
-    return appointments.filter((appointment) => {
-      try {
-        return isSameDay(parseISO(appointment.date), date)
       } catch (error) {
         return false
       }
@@ -352,32 +413,68 @@ function CalendarPage() {
 
   // Handle patient selection
   const handlePatientSelect = (patient) => {
-    setNewAppointment({
-      ...newAppointment,
-      patient,
-    })
-    setPatientSearchText(patient)
+    //console.log("Selected patient:", patient);
+    setSelectedPatient(patient)
+    setPatientSearchText(patient.name)
     setShowPatientDropdown(false)
   }
 
   // Handle new appointment form submission
-  const handleNewAppointmentSubmit = (e) => {
+  const handleNewAppointmentSubmit = async (e) => {
     e.preventDefault()
-    const newAppointmentObj = {
-      id: appointments.length + 1,
-      ...newAppointment,
-      time: selectedTime,
+
+    if (!selectedTime || !selectedTime.idFecha || !selectedPatient?.id) {
+      alert("Faltan datos para agendar la cita.")
+      return
     }
-    setAppointments([...appointments, newAppointmentObj])
-    setShowNewAppointment(false)
-    // Reset form
-    setNewAppointment({
-      patient: "",
-      date: format(selectedDate, "yyyy-MM-dd"),
-      time: "10:00",
-    })
-    setPatientSearchText("")
+
+    const payload = {
+      estado: 1,
+      idPaciente: selectedPatient.id,
+      idFecha: selectedTime.idFecha,
+      Sintomas: []
+    }
+    console.log("Payload final:", JSON.stringify(payload, null, 2))
+
+    try {
+      const response = await fetch("http://localhost:8000/citas", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        alert("Cita creada exitosamente.")
+        await cargarHoras()
+        await cargarCitas()
+        setShowNewAppointment(false)
+        // Optionally refresh data here
+      }  else {
+        let errorMessage = "Error desconocido";
+
+        try {
+          const contentType = response.headers.get("Content-Type");
+          if (contentType && contentType.includes("application/json")) {
+            const errorData = await response.json();
+            errorMessage = errorData.detail || JSON.stringify(errorData);
+          } else {
+            errorMessage = await response.text(); // fallback for non-JSON
+          }
+        } catch (parseError) {
+          console.error("Error parsing error response:", parseError);
+        }
+
+        alert(`Error al crear la cita: ${errorMessage}`);
+      }
+    } catch (err) {
+      console.error("Error en la petición:", err)
+      alert("Error en la red o en el servidor.")
+    }
   }
+
 
   // Handle block days form submission
   const handleBlockDaysSubmit = async (e) => {
@@ -521,9 +618,23 @@ function CalendarPage() {
   }
 
   // Delete appointment
-  const deleteAppointment = (id) => {
-    const updatedAppointments = appointments.filter((appointment) => appointment.id !== id)
-    setAppointments(updatedAppointments)
+  const deleteAppointment = async (id) => {
+    if (!window.confirm("¿Estás seguro de que quieres eliminar esta cita?")) return
+
+    try {
+      const response = await fetch(`http://localhost:8000/cita/${id}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) throw new Error("Error al eliminar la cita")
+
+      // Eliminar del estado local si el backend respondió bien
+      const updatedAppointments = appointments.filter((appointment) => appointment.id !== id)
+      setAppointments(updatedAppointments)
+    } catch (error) {
+      console.error("Error al eliminar cita:", error)
+      alert("Hubo un error al eliminar la cita.")
+    }
   }
 
   // Toggle dropdown visibility
@@ -534,8 +645,23 @@ function CalendarPage() {
 
   // Handle logout
   const handleLogout = () => {
-    navigate("/login")
+    localStorage.clear();
+    navigate("/login", { replace: true });
   }
+
+  function calcularEdad(fechaNacimiento) {
+    const hoy = new Date();
+    const nacimiento = new Date(fechaNacimiento);
+    let edad = hoy.getFullYear() - nacimiento.getFullYear();
+    const mes = hoy.getMonth() - nacimiento.getMonth();
+
+    if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) {
+      edad--;
+    }
+
+    return edad;
+  }
+
 
   // Icons
   const BellIcon = () => (
@@ -936,8 +1062,8 @@ function CalendarPage() {
           <div className="appointments-panel">
             {renderAppointmentsHeader()}
             <div className="appointments-content">
-              {getAppointmentsForDate(selectedDate).length > 0 ? (
-                getAppointmentsForDate(selectedDate).map((appointment) => (
+              {citasDelDia.length > 0 ? (
+                citasDelDia.map((appointment) => (
                   <div key={appointment.id} className="appointment-card">
                     <div className="appointment-header">
                       <span className="appointment-time">{appointment.time}</span>
@@ -949,21 +1075,32 @@ function CalendarPage() {
                     <button
                       className="generate-recipe"
                       onClick={() => {
-                        // Find the patient by name
-                        const patient = patientList.find((p) => p.name === appointment.patient) || {
-                          id: 0,
-                          name: appointment.patient,
-                          age: "",
-                        }
+                        const patient = patientList.find((p) => p.name === appointment.patient);
+
+                        const calcularEdad = (fechaNacimiento) => {
+                          if (!fechaNacimiento) return "";
+                          const hoy = new Date();
+                          const nacimiento = new Date(fechaNacimiento);
+                          let edad = hoy.getFullYear() - nacimiento.getFullYear();
+                          const mes = hoy.getMonth() - nacimiento.getMonth();
+                          if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) {
+                            edad--;
+                          }
+                          return edad.toString();
+                        };
 
                         // Navigate to prescription page with patient data
+                        //console.log("Id Appointment: ", appointment.id)
                         navigate("/prescription", {
                           state: {
-                            patient: patient,
-                            appointmentDate: appointment.date,
-                            appointmentTime: appointment.time,
-                            returnTo: "calendar",
-                          },
+                            patient: {
+                              id: patient?.id ?? 0,
+                              name: patient?.name ?? appointment.patient,
+                              age: calcularEdad(patient?.fecha_nacimiento)
+                            },
+                            citaId: appointment.id,
+                            returnTo: "calendar"
+                          }
                         })
                       }}
                     >
@@ -1009,7 +1146,7 @@ function CalendarPage() {
                       {filteredPatients.length > 0 ? (
                         filteredPatients.map((patient, index) => (
                           <div key={index} className="dropdown-item" onClick={() => handlePatientSelect(patient)}>
-                            {patient}
+                            {patient.name}
                           </div>
                         ))
                       ) : (
