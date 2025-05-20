@@ -30,15 +30,37 @@ function PrescriptionPage() {
 
   // Load patient data from location state
   useEffect(() => {
-    if (location.state?.patient) {
-      setPrescription({
-        ...prescription,
+    if (location.state?.patient && location.state?.citaId) {
+      setPrescription((prev) => ({
+        ...prev,
         patientId: location.state.patient.id,
         patientName: location.state.patient.name,
-        patientAge: location.state.patient.age || "",
-      })
+        patientAge: location.state.patient.age,
+        idCita: location.state.citaId
+      }))
     }
   }, [location.state])
+
+  useEffect(() => {
+    const fetchAlergias = async () => {
+      if (prescription.patientId) {
+        try {
+          const response = await fetch(`http://localhost:8000/paciente/${prescription.patientId}/alergias`);
+          if (response.ok) {
+            const data = await response.json();
+            const alergiasTexto = data.map(a => a.nombre).join("\n");
+            setPrescription(prev => ({ ...prev, alergias: alergiasTexto }));
+          } else {
+            console.error("No se pudieron cargar las alergias");
+          }
+        } catch (error) {
+          console.error("Error al cargar las alergias:", error);
+        }
+      }
+    };
+
+    fetchAlergias();
+  }, [prescription.patientId]);
 
   // Toggle dropdown visibility
   const toggleDropdown = () => {
@@ -47,33 +69,92 @@ function PrescriptionPage() {
 
   // Handle logout
   const handleLogout = () => {
-    navigate("/login")
+    localStorage.clear();
+    navigate("/login", { replace: true });
   }
 
   // Handle form submission
-  const handleSubmit = (e) => {
-    e.preventDefault()
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-    // Get existing prescriptions from localStorage
-    const existingPrescriptions = JSON.parse(localStorage.getItem("prescriptions") || "[]")
+    try {
+      console.log("prescription: ", prescription);
 
-    // Add new prescription with ID
-    const newPrescription = {
-      ...prescription,
-      id: Date.now(),
-      date: new Date().toISOString().split("T")[0],
+      // 1. Enviar la receta
+      const response = await fetch("http://localhost:8000/receta", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tratamiento: prescription.treatment,
+          talla: prescription.talla ? parseInt(prescription.talla) : null,
+          peso: prescription.pes ? parseFloat(prescription.pes) : null,
+          fc: prescription.fc ? parseInt(prescription.fc) : null,
+          fr: prescription.fr ? parseInt(prescription.fr) : null,
+          saturacion_oxigeno: prescription.satOxg || null,
+          presion_arterial: prescription.ta || null,
+          temperatura: prescription.temp ? parseFloat(prescription.temp) : null,
+          idCita: prescription.idCita,
+          fecha_creacion: prescription.fecha
+            ? new Date(prescription.fecha).toISOString()
+            : new Date().toISOString(),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        alert(`Error al guardar la receta: ${errorData.detail || "Error desconocido"}`);
+        return;
+      }
+
+      const receta = await response.json();
+      console.log("Receta guardada:", receta);
+
+      // 2. Enviar los síntomas a la tabla Cita_Sintoma
+      if (prescription.symptoms && prescription.idCita) {
+        const sintomas = prescription.symptoms
+          .split('\n')
+          .map(s => s.trim())
+          .filter(s => s.length > 0);
+
+        for (const sintoma of sintomas) {
+          try {
+            const sintomaResponse = await fetch(`http://localhost:8000/citas/${prescription.idCita}/sintomas`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ sintoma }),
+            });
+
+            if (!sintomaResponse.ok) {
+              const errorData = await sintomaResponse.json();
+              alert(`Error al guardar el síntoma "${sintoma}": ${errorData.detail || "Error desconocido"}`);
+            } else {
+              console.log(`Síntoma "${sintoma}" guardado exitosamente`);
+            }
+          } catch (err) {
+            console.error(`Error al enviar síntoma "${sintoma}":`, err);
+            alert(`Hubo un error al enviar el síntoma "${sintoma}".`);
+          }
+        }
+      }
+
+      alert("Receta guardada exitosamente");
+
+      // 3. Redirección
+      if (location.state?.returnTo === "patients") {
+        navigate("/patients");
+      } else {
+        navigate("/calendar");
+      }
+    } catch (err) {
+      console.error("Error al enviar receta:", err);
+      alert("Hubo un error al enviar la receta.");
     }
+  };
 
-    // Save to localStorage
-    localStorage.setItem("prescriptions", JSON.stringify([...existingPrescriptions, newPrescription]))
-
-    // Navigate back to patient page or calendar
-    if (location.state?.returnTo === "patients") {
-      navigate("/patients")
-    } else {
-      navigate("/calendar")
-    }
-  }
 
   // Icons
   const BellIcon = () => (
@@ -161,6 +242,7 @@ function PrescriptionPage() {
       <circle cx="12" cy="7" r="4" />
     </svg>
   )
+  console.log("prescription", prescription)
 
   return (
     <div className="home-container">
@@ -309,11 +391,11 @@ function PrescriptionPage() {
                 <h3 className="section-title">Información médica</h3>
 
                 <div className="prescription-form-group">
-                  <label>ALERGIAS:</label>
+                  <label>Tratamiento:</label>
                   <textarea
-                    value={prescription.alergias}
-                    onChange={(e) => setPrescription({ ...prescription, alergias: e.target.value })}
-                    placeholder="Alergias del paciente"
+                    value={prescription.treatment}
+                    onChange={(e) => setPrescription({ ...prescription, treatment: e.target.value })}
+                    required
                   ></textarea>
                 </div>
 
@@ -322,25 +404,18 @@ function PrescriptionPage() {
                   <textarea
                     value={prescription.symptoms}
                     onChange={(e) => setPrescription({ ...prescription, symptoms: e.target.value })}
+                    placeholder="Un síntoma por línea"
                     required
                   ></textarea>
                 </div>
 
                 <div className="prescription-form-group">
-                  <label>Diagnóstico:</label>
+                  <label>Alergias:</label>
                   <textarea
-                    value={prescription.diagnosis}
-                    onChange={(e) => setPrescription({ ...prescription, diagnosis: e.target.value })}
-                    required
-                  ></textarea>
-                </div>
-
-                <div className="prescription-form-group">
-                  <label>Tratamiento:</label>
-                  <textarea
-                    value={prescription.treatment}
-                    onChange={(e) => setPrescription({ ...prescription, treatment: e.target.value })}
-                    required
+                    value={prescription.alergias}
+                    readOnly
+                    style={{ userSelect: "none" }}
+                    placeholder="Sin Alergias"
                   ></textarea>
                 </div>
               </div>
