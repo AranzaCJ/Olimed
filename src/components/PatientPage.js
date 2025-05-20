@@ -112,6 +112,10 @@ function PatientPage() {
     fetchPatients()
   }, [])
 
+  useEffect(() => {
+    console.log("Pacientes cargados:", patients);
+  }, [patients]);
+
   // Helper function to calculate age from birthdate
   const calculateAge = (birthdate) => {
     if (!birthdate) return ""
@@ -156,7 +160,7 @@ function PatientPage() {
     setError(null)
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/paciente/${patientId}`)
+      const response = await fetch(`http://127.0.0.1:8000/pacientes/${patientId}/citas`)
       if (!response.ok) {
         throw new Error(`Error: ${response.status}`)
       }
@@ -173,8 +177,8 @@ function PatientPage() {
           age: calculateAge(data.fecha_nacimiento),
           contact: {
             email: data.correo || "",
-            phone1: data.telefonos && data.telefonos.length > 0 ? data.telefonos[0] : "",
-            phone2: data.telefonos && data.telefonos.length > 1 ? data.telefonos[1] : "",
+            phone1: data.Telefonos && data.Telefonos.length > 0 ? data.Telefonos[0].telefono : "",
+            phone2: data.Telefonos && data.Telefonos.length > 1 ? data.Telefonos[1].telefono : "",
           },
           address: {
             ...prevPatient.address,
@@ -237,7 +241,7 @@ function PatientPage() {
 
     try {
       // Endpoint for fetching patient appointments
-      const response = await fetch(`http://127.0.0.1:8000/paciente/${patientId}/citas`)
+      const response = await fetch(`http://127.0.0.1:8000/pacientes/${patientId}/citas`)
 
       if (!response.ok) {
         throw new Error(`Error: ${response.status}`)
@@ -330,7 +334,8 @@ function PatientPage() {
 
   // Handle logout
   const handleLogout = () => {
-    navigate("/login")
+    localStorage.clear();
+    navigate("/login", { replace: true });
   }
 
   // Icons

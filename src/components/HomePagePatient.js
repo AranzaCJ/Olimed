@@ -33,7 +33,7 @@ useEffect(() => {
 
       const idPaciente = decoded.sub;
 
-      fetch(`http://127.0.0.1:8000/paciente/1/notificaciones`, {
+      fetch(`http://127.0.0.1:8000/paciente/${idPaciente}/notificaciones`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,

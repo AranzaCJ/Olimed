@@ -197,6 +197,7 @@ function PatientPage() {
   const navigateToNewAppointment = () => {
     // Include the current date for proper disabled time slots functionality
     const currentDate = new Date()
+    console.log("Selected patient: ", selectedPatient)
     navigate("/calendar", {
       state: {
         openNewAppointment: true,
@@ -216,7 +217,8 @@ function PatientPage() {
 
   // Handle logout
   const handleLogout = () => {
-    navigate("/login")
+    localStorage.clear();
+    navigate("/login", { replace: true });
   }
 
   // Icons

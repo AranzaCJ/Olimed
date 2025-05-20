@@ -66,8 +66,8 @@ useEffect(() => {
 
   // Handle logout
   const handleLogout = () => {
-    // In a real app, you would clear authentication tokens/cookies here
-    navigate("/login")
+    localStorage.clear();
+    navigate("/login", { replace: true });
   }
 
   // Handle account deletion
