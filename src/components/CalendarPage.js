@@ -93,6 +93,7 @@ useEffect(() => {
     const patient = patientList.find((p) => p.id === location.state.patientId)
     if (patient) {
       setPatientSearchText(patient.name)
+      setSelectedPatient(patient)
       setNewAppointment((prev) => ({
         ...prev,
         patient: patient.name,

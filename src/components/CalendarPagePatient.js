@@ -1,32 +1,45 @@
 "use client"
+import { useEffect } from "react"
+import { useState } from "react"
+import { useMemo } from "react"
 import { jwtDecode } from "jwt-decode"; 
-import { useState, useEffect } from "react"
+//import { useState, useEffect } from "react"
 import "./CalendarPage.css"
 import { useNavigate, useLocation } from "react-router-dom"
-import { format, addMonths, subMonths, isSameDay, parseISO, addDays } from "date-fns"
+import { format, addMonths, subMonths, isSameDay, parseISO, addDays, isDate } from "date-fns"
+import { es } from "date-fns/locale"
+
+//const [patientList, setPatientList] = useState([]);
 
 function CalendarPage() {
   const navigate = useNavigate()
+  const token = localStorage.getItem("token");
+  let patientId = null;
+
+  try {
+    if (token) {
+      patientId = jwtDecode(token).sub;
+    }
+  } catch (error) {
+    console.error("Error decoding token:", error);
+  }
   const location = useLocation()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [showNewAppointment, setShowNewAppointment] = useState(false)
   const [showBlockDays, setShowBlockDays] = useState(false)
-  const [appointments, setAppointments] = useState([
-    {
-      id: 1,
-      date: format(new Date(), "yyyy-MM-dd"),
-      time: "10:00",
-    },
-    {
-      id: 2,
-      date: format(addDays(new Date(), 1), "yyyy-MM-dd"),
-      time: "1:00 pm",
-    },
-  ])
+  const [appointments, setAppointments] = useState([])
   const [blockedDates, setBlockedDates] = useState([
-
   ])
+  const [symptoms, setSymptoms] = useState("")
+
+  // New appointment form state
+  const [newAppointment, setNewAppointment] = useState({
+    patient: "",
+    date: format(selectedDate, "yyyy-MM-dd"),
+    time: "10:00",
+  })
+
 //carga de dias bloqueados desde el backend
   useEffect(() => {
     const cargarDiasBloqueados = async () => {
@@ -53,6 +66,33 @@ function CalendarPage() {
     cargarDiasBloqueados()
   }, [showBlockDays])
 
+  const [loadingPatient, setLoadingPatient] = useState(true)
+
+  useEffect(() => {
+    if (!patientId) return;
+    const fetchPatientData = async () => {
+      setLoadingPatient(true)
+      try {
+        const response = await fetch(`http://localhost:8000/paciente/${patientId}`)
+        if (!response.ok) throw new Error("Error al obtener el paciente")
+        const patient = await response.json()
+
+        setSelectedPatient(patient)
+        setPatientSearchText(patient.nombre)
+        setNewAppointment((prev) => ({
+          ...prev,
+          patient: patient.name
+        }))
+        //console.log("Nombre: ", patient)
+        await cargarCitas(patient.nombre)
+      } catch (error) {
+        console.error("Error al obtener paciente:", error)
+      } finally {
+        setLoadingPatient(false)
+      }
+    }
+    fetchPatientData()
+  }, [patientId])
 
   // Check if we should open new appointment modal from navigation
   useEffect(() => {
@@ -63,13 +103,12 @@ function CalendarPage() {
       if (location.state.selectedDate) {
         const selectedDateObj = parseISO(location.state.selectedDate)
         setSelectedDate(selectedDateObj)
-        setNewAppointment({
-          ...newAppointment,
+      setNewAppointment((prev) => ({
+        ...prev,
           date: location.state.selectedDate,
-        })
-      }
+      }))
     }
-  }, [location.state])
+    }}, [location.state])
 
   // Dropdown states
   const [showTimeDropdown, setShowTimeDropdown] = useState(false)
@@ -78,6 +117,16 @@ function CalendarPage() {
   const [selectedReason, setSelectedReason] = useState("Vacaciones")
   const [showUnblockModal, setShowUnblockModal] = useState(false)
   const [blockToUnblock, setBlockToUnblock] = useState(null)
+  const [selectedPatient, setSelectedPatient] = useState([])
+
+  // Add this after the other state declarations
+  const [showAppointmentHours, setShowAppointmentHours] = useState(false)
+  const [appointmentHours, setAppointmentHours] = useState({
+    date: format(selectedDate, "yyyy-MM-dd"),
+    startTime: "09:00",
+    endTime: "18:00",
+    duration: 30,
+  })
 
   // Patient search dropdown
   const [showPatientDropdown, setShowPatientDropdown] = useState(false)
@@ -85,16 +134,9 @@ function CalendarPage() {
 
   // Date picker mini calendar
   const [showMiniCalendar, setShowMiniCalendar] = useState(false)
-  const [miniCalendarDate, setMiniCalendarDate] = useState(new Date())
   const [showMiniCalendarEnd, setShowMiniCalendarEnd] = useState(false)
+  const [miniCalendarDate, setMiniCalendarDate] = useState(new Date())
   const [miniCalendarEndDate, setMiniCalendarEndDate] = useState(new Date())
-
-  // New appointment form state
-  const [newAppointment, setNewAppointment] = useState({
-    patient: "",
-    date: format(selectedDate, "yyyy-MM-dd"),
-    time: "10:00",
-  })
 
   // Block days form state
   const [blockDays, setBlockDays] = useState({
@@ -105,34 +147,75 @@ function CalendarPage() {
     endTime: "18:00",
   })
 
+
+  const cargarHoras = async () => {
+    try {
+      const res = await fetch(`http://localhost:8000/fechasDisponibles?fecha=${newAppointment.date}`)
+      const data = await res.json()
+      setTimeOptions(data)
+
+      const disponible = data.find(h => h.disponible === 1 && h.bloqueado === 0)
+      if (disponible) {
+      console.log("Imprimiendo hora disponible")
+      console.log(disponible)
+        setSelectedTime(disponible)
+    } else {
+        setSelectedTime(null)
+      }
+    } catch (err) {
+      console.error("Error al cargar horarios:", err)
+    }
+  }
+
+  const cargarCitas = async (patientName) => {
+    console.log("Paciente: ", patientName)
+    try {
+      const res = await fetch(`http://localhost:8000/pacientes/${patientId}/citas`);
+      const data = await res.json();
+
+      if (Array.isArray(data)) {
+        const citasFormateadas = data.map((cita) => {
+          const fecha = parseISO(cita.fecha);
+          return {
+            id: cita.idCita,
+            patient: patientName || "Paciente desconocido",
+            date: format(new Date(fecha), "yyyy-MM-dd"),
+            time: format(new Date(fecha), "h:mm a", { locale: es }),
+            idPaciente: cita.idPaciente,
+          };
+        });
+
+        setAppointments(citasFormateadas);
+      } else {
+        setAppointments([]);
+      }
+    } catch (error) {
+      console.log("Error al cargar citas:", error);
+      setAppointments([]);
+    }
+  };
+
+  const citasDelDia = useMemo(() => {
+    if (!selectedDate || appointments.length === 0) return []
+    return appointments.filter((appointment) => {
+      try {
+        return isSameDay(parseISO(appointment.date), selectedDate)
+      } catch (e) {
+        return false
+      }
+    })
+  }, [appointments, selectedDate])
+
   // Time options
   const [timeOptions, setTimeOptions] = useState([])
   useEffect(() => {
-    const cargarHoras = async () => {
-      try {
-        const res = await fetch(`http://localhost:8000/fechasDisponibles?fecha=${newAppointment.date}`)
-        const data = await res.json()
-        setTimeOptions(data)
-
-        const disponible = data.find(h => h.disponible === 1 && h.bloqueado === 0)
-        if (disponible) {
-          console.log("imprimiendo la hora disponible");
-          console.log(disponible);
-          setSelectedTime(disponible)
-        }else{
-          setSelectedTime(null)
-        }
-
-      } catch (err) {
-        console.error("Error al cargar horarios:", err)
-      }
-    }
-
     if (newAppointment.date) {
       cargarHoras()
     }
+  }, [newAppointment.date, showNewAppointment])
 
-  }, [newAppointment.date])  // Se ejecuta cada vez que cambia la fecha seleccionada
+  // Reason options
+  const reasonOptions = ["Vacaciones", "Día festivo", "Capacitación", "Mantenimiento", "Otro"]
 
   // Navigate to previous month
   const prevMonth = () => {
@@ -157,11 +240,13 @@ function CalendarPage() {
     setMiniCalendarDate(addMonths(miniCalendarDate, 1))
   }
 
-  const prevMiniMonthEnd = () => {
+  const prevMiniMonthEnd = (e) => {
+    e.stopPropagation()
     setMiniCalendarEndDate(subMonths(miniCalendarEndDate, 1))
   }
 
-  const nextMiniMonthEnd = () => {
+  const nextMiniMonthEnd = (e) => {
+    e.stopPropagation()
     setMiniCalendarEndDate(addMonths(miniCalendarEndDate, 1))
   }
 
@@ -201,10 +286,6 @@ function CalendarPage() {
   }
 
   // Modificar la función para verificar si una hora ya está ocupada
-  const isTimeSlotBooked = (date, time) => {
-    const appointmentsForDate = getAppointmentsForDate(date)
-
-    // Normalizar el formato de tiempo para comparación
     const normalizeTime = (timeStr) => {
       // Convertir formatos como "1:00 pm" a "1:00 pm" para comparación consistente
       if (!timeStr) return ""
@@ -227,14 +308,6 @@ function CalendarPage() {
       } else {
         return `${hour}:${minutes} am`
       }
-    }
-
-    const normalizedTime = normalizeTime(time)
-
-    return appointmentsForDate.some((appointment) => {
-      const normalizedAppointmentTime = normalizeTime(appointment.time)
-      return normalizedAppointmentTime === normalizedTime
-    })
   }
 
   // Get block for selected date
@@ -296,53 +369,179 @@ function CalendarPage() {
   }
 
   // Handle new appointment form submission
-  const handleNewAppointmentSubmit = (e) => {
+  const handleNewAppointmentSubmit = async (e) => {
     e.preventDefault()
-    const newAppointmentObj = {
-      id: appointments.length + 1,
-      ...newAppointment,
-      time: selectedTime,
+
+    console.log(selectedPatient)
+    if (!selectedTime || !selectedTime.idFecha || !selectedPatient?.idPaciente) {
+      alert("Faltan datos para agendar la cita.")
+      return
     }
-    setAppointments([...appointments, newAppointmentObj])
+
+    const payload = {
+      estado: 1,
+      idPaciente: selectedPatient.idPaciente,
+      idFecha: selectedTime.idFecha,
+      Sintomas: symptoms.trim()
+      ? symptoms.split(",").map(s => ({ sintoma: s.trim() })).filter(s => s.sintoma)
+      : []
+    }
+    console.log("Payload final:", JSON.stringify(payload, null, 2))
+
+    try {
+      const response = await fetch("http://localhost:8000/citas", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        alert("Cita creada exitosamente.")
+        await cargarHoras()
+        await cargarCitas()
     setShowNewAppointment(false)
+        // Optionally refresh data here
+      }  else {
+        let errorMessage = "Error desconocido";
+
+        try {
+          const contentType = response.headers.get("Content-Type");
+          if (contentType && contentType.includes("application/json")) {
+            const errorData = await response.json();
+            errorMessage = errorData.detail || JSON.stringify(errorData);
+          } else {
+            errorMessage = await response.text(); // fallback for non-JSON
+          }
+        } catch (parseError) {
+          console.error("Error parsing error response:", parseError);
+        }
+
+        alert(`Error al crear la cita: ${errorMessage}`);
+      }
+    } catch (err) {
+      console.error("Error en la petición:", err)
+      alert("Error en la red o en el servidor.")
+    }
+  }
+
+
+  // Handle block days form submission
+  const handleBlockDaysSubmit = async (e) => {
+    e.preventDefault()
+    console.log("Se ejecuto el codigo de bloquear dias")
+    const bloquearDias = async () => {
+      try {
+      let haveAppointments = false
+      appointments.forEach((cita) => {
+        // Convertimos las fechas a objetos Date
+        const citaDate = new Date(cita.date);
+        const startDate = new Date(blockDays.startDate);
+        const endDate = new Date(blockDays.endDate);
+
+        // Comparamos
+        if (citaDate >= startDate && citaDate <= endDate) {
+          haveAppointments = true;
+        }
+      });
+      if (haveAppointments) {
+        const confirmar = window.confirm("Los días a bloquear contienen citas ya definidas. Si bloqueas los días, las citas se cancelarán. ¿Deseas continuar?");
+        if (!confirmar) return; // Si el usuario cancela, detenemos aquí
+      }
+
+      let inicio = `${blockDays.startDate}T${blockDays.startTime}`
+      let fin = `${blockDays.endDate}T${blockDays.endTime}`
+      let bloqueado = 1
+      let url = `http://127.0.0.1:8000/fechasDisponibles?inicio=${inicio}&fin=${fin}&bloqueado=1`
+      const response = await fetch(url, {
+        method: "PATCH"
+      })
+      if (!response.ok) {
+        const errorData = await response.json()
+        alert("Error: " + errorData.detail)
+      } else {
+        const data = await response.json()
+        alert(data.message)
+      }
+    } catch (error) {
+      alert("Ocurrio un error al hacer la peticion" + error)
+    }
+    }
+    
+    await bloquearDias()
+
+    setShowBlockDays(false)
     // Reset form
-    setNewAppointment({
-      date: format(selectedDate, "yyyy-MM-dd"),
-      time: "10:00",
+    setBlockDays({
+      startDate: format(selectedDate, "yyyy-MM-dd"),
+      endDate: format(selectedDate, "yyyy-MM-dd"),
+      reason: "Vacaciones",
+      startTime: "09:00",
+      endTime: "18:00",
     })
   }
 
-  const handleDeleteAccount = async () => {
-    const token = localStorage.getItem("token");
-    const patientId = jwtDecode(token).sub;
-    //const navigate = useNavigate();
-    const ok = window.confirm("¿Estás seguro de querer eliminar tu cuenta?");
-    if (!ok) return;
-  
+  //Modificado para crear los horarios disponibles
+  // Add this after the other handler functions esto sirve para generar citas
+  const handleAppointmentHoursSubmit = async (e) => {
+    e.preventDefault()
+    // Here you would typically save the appointment hours to your backend
+    console.log("Appointment hours set:", appointmentHours)
+    const horarios = []
+    let [h, m] = appointmentHours.startTime.split(":").map(Number)
+    const [endH, endM] = appointmentHours.endTime.split(":").map(Number)
+    const duracionCita = Number.parseInt(appointmentHours.duration)
+    const fecha = appointmentHours.date
+
+    while (h < endH || (h === endH && m < endM)) {
+      const horaActual = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`
+      horarios.push(horaActual)
+      m += duracionCita
+      if (m >= 60) {
+        h += Math.floor(m / 60)
+        m = m % 60
+      }
+    }
+
+    for (const hora of horarios) {
+      console.log(hora)
+    }
+
+    for (const hora of horarios) {
     try {
-      const res = await fetch(
-        `http://127.0.0.1:8000/paciente/${patientId}`,
-        {
-          method: "DELETE",
+        const url = "http://127.0.0.1:8000/fechasDisponibles"
+        await fetch(url, {
+          method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
           },
-        }
-      );
-  
-      if (!res.ok) throw new Error("Error al eliminar cuenta");
-  
-      // Limpia el estado de sesión y redirige al login
-      localStorage.clear();
-      navigate("/login", { replace: true });
-    } catch (err) {
-      console.error(err);
-      alert("No se pudo eliminar la cuenta. Intenta de nuevo más tarde.");
+          body: JSON.stringify({
+            fecha: `${fecha}T${hora}:00`,
+            disponible: 1,
+            seleccionado: 0,
+            bloqueado: 0,
+          }),
+        })
+      } catch (error) {
+        console.log("Error al enviar" + hora, error)
+      }
     }
-  };
-  // Handle unblock confirmation
-  const handleUnblock = () => {
+
+    alert("Horario creados correctamente")
+
+    setShowAppointmentHours(false)
+    // Reset form
+    setAppointmentHours({
+      date: format(selectedDate, "yyyy-MM-dd"),
+      startTime: "09:00",
+      endTime: "18:00",
+    })
+  }
+
+  // Handle unblock confirmation AQUI SE PROGRAMA EL DESBLOQUEO
+  const handleUnblock = async () => {
     if (blockToUnblock) {
       const updatedBlocks = blockedDates.filter((block) => block.id !== blockToUnblock.id)
       setBlockedDates(updatedBlocks)
@@ -352,9 +551,23 @@ function CalendarPage() {
   }
 
   // Delete appointment
-  const deleteAppointment = (id) => {
+  const deleteAppointment = async (id) => {
+    if (!window.confirm("¿Estás seguro de que quieres eliminar esta cita?")) return
+
+    try {
+      const response = await fetch(`http://localhost:8000/cita/${id}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) throw new Error("Error al eliminar la cita")
+
+      // Eliminar del estado local si el backend respondió bien
     const updatedAppointments = appointments.filter((appointment) => appointment.id !== id)
     setAppointments(updatedAppointments)
+    } catch (error) {
+      console.error("Error al eliminar cita:", error)
+      alert("Hubo un error al eliminar la cita.")
+    }
   }
 
   // Toggle dropdown visibility
@@ -365,8 +578,53 @@ function CalendarPage() {
 
   // Handle logout
   const handleLogout = () => {
-    navigate("/login")
+    localStorage.clear();
+    navigate("/login", { replace: true });
   }
+
+  const handleDeleteAccount = async () => {
+  const token = localStorage.getItem("token");
+  const patientId = jwtDecode(token).sub;
+  //const navigate = useNavigate();
+  const ok = window.confirm("¿Estás seguro de querer eliminar tu cuenta?");
+  if (!ok) return;
+
+  try {
+    const res = await fetch(
+      `http://127.0.0.1:8000/paciente/${patientId}`,
+      {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!res.ok) throw new Error("Error al eliminar cuenta");
+
+    // Limpia el estado de sesión y redirige al login
+    localStorage.clear();
+    navigate("/login", { replace: true });
+  } catch (err) {
+    console.error(err);
+    alert("No se pudo eliminar la cuenta. Intenta de nuevo más tarde.");
+  }
+};
+
+  function calcularEdad(fechaNacimiento) {
+    const hoy = new Date();
+    const nacimiento = new Date(fechaNacimiento);
+    let edad = hoy.getFullYear() - nacimiento.getFullYear();
+    const mes = hoy.getMonth() - nacimiento.getMonth();
+
+    if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) {
+      edad--;
+    }
+
+    return edad;
+  }
+
 
   // Icons
   const BellIcon = () => (
@@ -618,11 +876,11 @@ function CalendarPage() {
       <div className="calendar-header">
         <div className="year-display">{year}</div>
         <div className="month-navigation">
-          <button className="nav-button" onClick={(e) => prevMiniMonth(e)}>
+          <button className="nav-button" onClick={prevMonth}>
             <ChevronLeftIcon />
           </button>
           <div className="month-display">{monthNames[month]}</div>
-          <button className="nav-button" onClick={(e) => nextMiniMonth(e)}>
+          <button className="nav-button" onClick={nextMonth}>
             <ChevronRightIcon />
           </button>
         </div>
@@ -661,17 +919,18 @@ function CalendarPage() {
     setShowTimeDropdown(!showTimeDropdown)
   }
 
+  if (loadingPatient) return <p>Cargando datos del paciente...</p>
   return (
     <div className="home-container">
       {/* Header */}
       <header className="home-header">
         <div className="logo-container">
           <div className="logo-circle">
-          <img src="/logo.jpg" alt="Logo"/>
+            <img src="/logo.jpg" alt="Logo" />
           </div>
         </div>
         <div className="banner">
-          <span className="banner-text">Para tu salud uhfcgj</span>
+          <span className="banner-text">Para tu salud</span>
         </div>
         <div className="profile-container">
           <div className="profile-circle" onClick={toggleDropdown}>
@@ -753,8 +1012,8 @@ function CalendarPage() {
           <div className="appointments-panel">
             {renderAppointmentsHeader()}
             <div className="appointments-content">
-              {getAppointmentsForDate(selectedDate).length > 0 ? (
-                getAppointmentsForDate(selectedDate).map((appointment) => (
+              {citasDelDia.length > 0 ? (
+                citasDelDia.map((appointment) => (
                   <div key={appointment.id} className="appointment-card">
                     <div className="appointment-header">
                       <span className="appointment-time">{appointment.time}</span>
@@ -840,7 +1099,9 @@ function CalendarPage() {
               <div className="form-group">
                 <label>Hora</label>
                 <div className="input-with-icon">
-                  <input type="text" value={
+                  <input
+                    type="text"
+                    value={
                     selectedTime && selectedTime.fecha
                       ? new Date(selectedTime.fecha).toLocaleTimeString("es-MX", {
                         hour: "2-digit",
@@ -848,7 +1109,9 @@ function CalendarPage() {
                       })
                       : ""
                     } 
-                    readOnly onClick={toggleTimeDropdown} />
+                    readOnly
+                    onClick={toggleTimeDropdown}
+                  />
                   <div className="input-icons">
                     <div onClick={toggleTimeDropdown} style={{ cursor: "pointer" }}>
                       <ChevronDownIcon />
@@ -858,9 +1121,9 @@ function CalendarPage() {
                     <div className="dropdown-menu">
                       {timeOptions.map((time) => {
                         // Verificar si la hora está ocupada
-                        const isBooked = time.disponible === 0 ? true : false;
-                        const isBlocked = time.bloqueado === 1 ? true : false;
-                        let mensaje = "";
+                        const isBooked = time.disponible === 0 ? true : false
+                        const isBlocked = time.bloqueado === 1 ? true : false
+                        let mensaje = ""
                         if (isBooked) mensaje = "Ocupado"
                         if (isBlocked) mensaje = "Bloqueado"
                         const hora = new Date(time.fecha).toLocaleTimeString("es-MX", {
@@ -897,7 +1160,13 @@ function CalendarPage() {
               <div className="form-group">
                 <label>Sintomas</label>
                 <div className="input-with-icon">
-                  <input type="text" />
+                  <input
+                    type="text"
+                    value={symptoms}
+                    onChange={(e) => setSymptoms(e.target.value)}
+                    placeholder="Describe los síntomas separados por comas"
+                    rows={3}
+                  />
                 </div>
               </div>
               <div className="modal-actions">
