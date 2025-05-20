@@ -3,7 +3,7 @@ import { jwtDecode } from "jwt-decode"
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import "./PatientPage.css"
-import { format } from "date-fns"
+import { format , parseISO} from "date-fns"
 import { fetchPatientData, updatePatientData } from "../utils/api"
 
 function PatientPage() {
@@ -69,7 +69,7 @@ function PatientPage() {
         // Update the patient's appointments with the fetched data
         const formattedData = data.map((item) => ({
           id: item.idCita,
-          date: item.fecha_creacion,
+          date: new Date(item.fecha_creacion).toLocaleDateString(),
           diagnosis: "Cargado en el tratamiento",
           treatment: item.tratamiento,
         }));
@@ -83,7 +83,7 @@ function PatientPage() {
       }
     }
     fetchAppointments()
-  })
+  }, [])
 
   // Fetch patient data on component mount
   useEffect(() => {
