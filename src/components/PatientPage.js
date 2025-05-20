@@ -241,7 +241,7 @@ function PatientPage() {
 
     try {
       // Endpoint for fetching patient appointments
-      const response = await fetch(`http://127.0.0.1:8000/pacientes/${patientId}/citas`)
+      const response = await fetch(`http://127.0.0.1:8000/paciente/${patientId}/recetas`)
 
       if (!response.ok) {
         throw new Error(`Error: ${response.status}`)
@@ -263,7 +263,7 @@ function PatientPage() {
         })),
       }))
 
-      showHistory() // Show the history view after fetching
+      //showHistory() // Show the history view after fetching
     } catch (err) {
       console.error("Error fetching patient history:", err)
       setError("Error al cargar el historial del paciente. Por favor, inténtelo de nuevo.")
@@ -310,13 +310,13 @@ function PatientPage() {
   // Replace the existing showHistory function with this:
   const showHistory = () => {
     if (selectedPatient) {
+
       // Only fetch if we haven't already
       if (!isLoading && selectedPatient.appointments.length === 0) {
         fetchPatientHistory(selectedPatient.id)
-      } else {
-        setShowPatientDetails(false)
-        setShowPatientHistory(true)
       }
+      setShowPatientDetails(false)
+      setShowPatientHistory(true)
     }
   }
 

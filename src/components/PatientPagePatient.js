@@ -18,7 +18,8 @@ function PatientPage() {
   const [successMessage, setSuccessMessage] = useState(null)
 
   // Sample appointments data
-  const appointments = [
+  const [appointments, setAppointments] = useState([])
+  /*const appointments = [
     {
       id: 1,
       date: "03/02/2025",
@@ -41,6 +42,49 @@ function PatientPage() {
     },
   ]
 
+  */
+
+  useEffect(() => {
+    const fetchAppointments = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        let patientId = null;
+
+        try {
+          if (token) {
+            patientId = jwtDecode(token).sub;
+          }
+        } catch (error) {
+          console.error("Error decoding token:", error);
+        }
+        // Endpoint for fetching patient appointments
+        const response = await fetch(`http://127.0.0.1:8000/paciente/${patientId}/recetas`)
+
+        if (!response.ok) {
+          throw new Error(`Error: ${response.status}`)
+        }
+
+        const data = await response.json()
+
+        // Update the patient's appointments with the fetched data
+        const formattedData = data.map((item) => ({
+          id: item.idCita,
+          date: item.fecha_creacion,
+          diagnosis: "Cargado en el tratamiento",
+          treatment: item.tratamiento,
+        }));
+
+        setAppointments(formattedData);
+
+        //showHistory() // Show the history view after fetching
+      } catch (err) {
+        console.error("Error fetching patient history:", err)
+        setError("Error al cargar el historial del paciente. Por favor, inténtelo de nuevo.")
+      }
+    }
+    fetchAppointments()
+  })
+
   // Fetch patient data on component mount
   useEffect(() => {
     fetchPatientDataFromAPI()
@@ -52,8 +96,18 @@ function PatientPage() {
     setError(null)
 
     try {
+      const token = localStorage.getItem("token");
+      let patientId = null;
+
+      try {
+        if (token) {
+          patientId = jwtDecode(token).sub;
+        }
+      } catch (error) {
+        console.error("Error decoding token:", error);
+      }
       // In a real app, you would get the patient ID from authentication
-      const patientId = 1 // Mock patient ID
+      // Mock patient ID
       const data = await fetchPatientData(patientId)
 
       // Create patient object from API data
@@ -125,7 +179,7 @@ function PatientPage() {
       setExpandedAppointment(null)
       setSelectedAppointment(null)
     } else {
-      const appointment = appointments.find((a) => a.id === appointmentId)
+      const appointment = appointments.find((a) => a.idCita === appointmentId)
       setExpandedAppointment(appointmentId)
       setSelectedAppointment(appointment)
     }
@@ -441,15 +495,15 @@ function PatientPage() {
         <main className="main-content">
           <div className="appointments-list">
             {appointments.map((appointment) => (
-              <div key={appointment.id} className="appointment-item">
-                <div className="appointment-header" onClick={() => toggleAppointment(appointment.id)}>
+              <div key={appointment.idCita} className="appointment-item">
+                <div className="appointment-header" onClick={() => toggleAppointment(appointment.idCita)}>
                   <span className="appointment-date">{appointment.date}</span>
                   <button className="toggle-button">
-                    {expandedAppointment === appointment.id ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                    {expandedAppointment === appointment.idCita ? <ChevronUpIcon /> : <ChevronDownIcon />}
                   </button>
                 </div>
 
-                {expandedAppointment === appointment.id && selectedAppointment && (
+                {expandedAppointment === appointment.idCita && selectedAppointment && (
                   <div className="appointment-details">
                     <div className="medical-section">
                       <h3>Síntomas:</h3>
